@@ -1,0 +1,25 @@
+/*
+ *  TLS Demo
+ *
+ *  Copyright (C) 2019, Hensoldt Cyber GmbH
+ *
+ */
+
+import <if_OS_socket.camkes>;
+import <if_OS_Tls.camkes>;
+
+import "../TlsRpcServer/TlsRpcServer.camkes";
+
+component demo_OS_Tls {
+    control;
+
+    // Networking
+    uses        if_OS_socket                network_stack_rpc;
+    dataport    Buf                         NwAppDataPort;
+    consumes    ServiceReady                event_network_stack_init_done;
+
+    // TLS
+    uses        TlsRpcServerInf             TlsRpcServer;
+    uses        if_OS_Tls                   OS_TlsRpcServer;
+    dataport    Buf                         tlsClientDataport;
+}

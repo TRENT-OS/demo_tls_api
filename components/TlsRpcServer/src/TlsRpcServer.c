@@ -1,0 +1,197 @@
+/**
+ * Copyright (C) 2019, Hensoldt Cyber GmbH
+ */
+
+#include "DemoConfig.h"
+
+#include "OS_Crypto.h"
+#include "OS_Tls.h"
+
+#include "LibDebug/Debug.h"
+#include "OS_Network.h"
+
+#include "TlsRpcServer.h"
+
+#include <camkes.h>
+#include <string.h>
+
+#define MAX_BUFFER_SIZE 2048
+
+extern seos_err_t OS_NetworkAPP_RT(
+    OS_Network_Context_t ctx);
+
+static int
+sendFunc(
+    void*                ctx,
+    const unsigned char* buf,
+    size_t               len);
+
+static int
+recvFunc(
+    void*          ctx,
+    unsigned char* buf,
+    size_t         len);
+
+static int
+entropy(
+    void*          ctx,
+    unsigned char* buf,
+    size_t         len);
+
+static OS_Tls_Config_t tlsCfg =
+{
+    .mode = OS_Tls_MODE_RPC_SERVER,
+    .config.server.library = {
+        .socket = {
+            .recv   = recvFunc,
+            .send   = sendFunc,
+        },
+        .flags = OS_TlsLib_FLAG_DEBUG,
+        .crypto = {
+            .policy = NULL,
+            // This is the "DigiCert SHA2 Secure Server CA" cert for verifying
+            // the cert given by www.example.com!
+            .caCert = TLS_HOST_CERT,
+            .cipherSuites = {
+                OS_TlsLib_CIPHERSUITE_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+            },
+            .cipherSuitesLen = 1
+        }
+    }
+};
+static OS_Crypto_Config_t cryptoCfg =
+{
+    .mode = OS_Crypto_MODE_LIBRARY,
+    .mem = {
+        .malloc = malloc,
+        .free = free,
+    },
+    .impl.lib.rng.entropy = entropy
+};
+static OS_Network_Socket_t socketCfg =
+{
+    .domain = OS_AF_INET,
+    .type   = OS_SOCK_STREAM,
+    .name   = TLS_HOST_IP,
+    .port   = TLS_HOST_PORT
+};
+
+static OS_Tls_Handle_t hTls;
+static OS_Crypto_Handle_t hCrypto;
+static OS_NetworkSocket_Handle_t socket;
+
+// Private static functions ----------------------------------------------------
+
+static int
+sendFunc(
+    void*                ctx,
+    const unsigned char* buf,
+    size_t               len)
+{
+    seos_err_t err;
+    OS_NetworkSocket_Handle_t* sockHandle = (OS_NetworkSocket_Handle_t*) ctx;
+    size_t n;
+
+    n = len > MAX_BUFFER_SIZE ? MAX_BUFFER_SIZE : len;
+    if ((err = OS_NetworkSocket_write(*sockHandle, buf, &n)) != SEOS_SUCCESS)
+    {
+        Debug_LOG_ERROR("Error during socket write...error:%d", err);
+        return -1;
+    }
+
+    return n;
+}
+
+static int
+recvFunc(
+    void*          ctx,
+    unsigned char* buf,
+    size_t         len)
+{
+    seos_err_t err;
+    OS_NetworkSocket_Handle_t* sockHandle = (OS_NetworkSocket_Handle_t*) ctx;
+    size_t n;
+
+    n = len > MAX_BUFFER_SIZE ? MAX_BUFFER_SIZE : len;
+    if ((err = OS_NetworkSocket_read(*sockHandle, buf, &n)) != SEOS_SUCCESS)
+    {
+        Debug_LOG_ERROR("Error during socket read...error:%d", err);
+        return -1;
+    }
+
+    return n;
+}
+
+static int
+entropy(
+    void*          ctx,
+    unsigned char* buf,
+    size_t         len)
+{
+    // This would be the platform specific function to obtain entropy
+    memset(buf, 0, len);
+    return 0;
+}
+
+// Public functions ------------------------------------------------------------
+
+// We need to give the TLS RPC Server the context to use for a specific client;
+// we have only one client here, so it is easy.
+OS_Tls_Handle_t
+OS_TlsRpcServer_getTls(
+    void)
+{
+    return hTls;
+}
+
+seos_err_t
+TlsRpcServer_init(
+    void)
+{
+    seos_err_t err;
+
+    // Apparently this needs to be done in the RPC thread...?!
+    OS_NetworkAPP_RT(NULL);
+
+    err = OS_Crypto_init(&hCrypto, &cryptoCfg);
+    Debug_ASSERT(SEOS_SUCCESS == err);
+
+    tlsCfg.config.server.dataport               = tlsServerDataport;
+    tlsCfg.config.server.library.crypto.handle  = hCrypto;
+    // Socket will be connected later, by call to _connectSocket()
+    tlsCfg.config.server.library.socket.context = &socket;
+
+    err = OS_Tls_init(&hTls, &tlsCfg);
+    Debug_ASSERT(SEOS_SUCCESS == err);
+
+    return 0;
+}
+
+seos_err_t
+TlsRpcServer_connectSocket(
+    void)
+{
+    return OS_NetworkSocket_create(NULL, &socketCfg, &socket);
+}
+
+seos_err_t
+TlsRpcServer_closeSocket(
+    void)
+{
+    return OS_NetworkSocket_close(socket);
+}
+
+seos_err_t
+TlsRpcServer_free(
+    void)
+{
+    seos_err_t err;
+
+    err = OS_Tls_free(hTls);
+    Debug_ASSERT(SEOS_SUCCESS == err);
+
+    err = OS_Crypto_free(hCrypto);
+    Debug_ASSERT(SEOS_SUCCESS == err);
+
+    return 0;
+}
