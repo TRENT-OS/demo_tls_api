@@ -9,8 +9,8 @@ seos_use_libs(
     SEOS_NETWORK_DRIVER_TAP_PROXY
     SEOS_CRYPTO
     SEOS_CRYPTO_IMPL_MBEDTLS
-    SEOS_TLS_WITH_RPC_CLIENT
-    SEOS_TLS_WITH_RPC_SERVER
+    SEOS_TLS_PB_WITH_RPC_CLIENT
+    SEOS_TLS_PB_WITH_RPC_SERVER
     SEOS_TLS_IMPL_MBEDTLS
 )
 
@@ -30,7 +30,7 @@ DeclareCAmkESComponent(demo_OS_Tls
         seos_core_api
         seos_libs
         seos_crypto
-        seos_tls_with_rpc_client
+        seos_tls_pb_with_rpc_client
 )
 
 DeclareCAmkESComponent(TlsRpcServer
@@ -53,7 +53,7 @@ DeclareCAmkESComponent(TlsRpcServer
         seos_core_api
         seos_libs
         seos_crypto
-        seos_tls_with_rpc_server
+        seos_tls_pb_with_rpc_server
 )
 
 DeclareCAmkESComponent(NwStack_1
