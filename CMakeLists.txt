@@ -1,18 +1,17 @@
+#
+# Demo TLS API
+#
+# Copyright (C) 2019-2020, Hensoldt Cyber GmbH
+#
+
 cmake_minimum_required(VERSION 3.7.2)
 
-seos_set_config_file(config/SystemConfig.h)
+os_set_config_file(config/SystemConfig.h CREATE_CONFIG_PROJECT)
 
-seos_use_libs(
-    SEOS_LIBS
-    SEOS_CHANMUX
-    SEOS_NW_STACK
-    SEOS_NETWORK_DRIVER_TAP_PROXY
-    SEOS_CRYPTO
-    SEOS_CRYPTO_IMPL_MBEDTLS
-    SEOS_TLS_PB_WITH_RPC_CLIENT
-    SEOS_TLS_PB_WITH_RPC_SERVER
-    SEOS_TLS_IMPL_MBEDTLS
-)
+#-------------------------------------------------------------------------------
+project(system_config C)
+add_library(${PROJECT_NAME} INTERFACE)
+target_include_directories(${PROJECT_NAME} INTERFACE ${CMAKE_CURRENT_LIST_DIR})
 
 project(demo_tls_api C)
 
@@ -22,15 +21,16 @@ DeclareCAmkESComponent(demo_OS_Tls
         components/TlsRpcServer/src
     SOURCES
         components/Demo/src/demo_OS_Tls.c
-        ${SEOS_LIBS_DIR}/seos_nwstack/network-client-lib/seos_nw_api_interface.c
     C_FLAGS
         -Wall -Werror
-        -DCLIENT_CONFIG=1
     LIBS
-        seos_core_api
-        seos_libs
-        seos_crypto
-        seos_tls_pb_with_rpc_client
+        system_config
+        os_core_api
+        os_libs
+        os_crypto
+        os_network_api
+        os_tls
+        os_tls_with_rpc_client
 )
 
 DeclareCAmkESComponent(TlsRpcServer
@@ -39,21 +39,22 @@ DeclareCAmkESComponent(TlsRpcServer
         components/TlsRpcServer/src
     SOURCES
         components/TlsRpcServer/src/TlsRpcServer.c
-        ${SEOS_LIBS_DIR}/seos_nwstack/network-client-lib/seos_nw_api_interface.c
     C_FLAGS
         -Wall -Werror
-        # We need to ensure that when compiling this file we have set all the
-        # mbedTLS defines set when compiling the TLS library. The reason for this
-        # is that it pulls in mbedTLS structs on its own and these need to match
-        # those in the lib.
-        -DMBEDTLS_CONFIG_FILE="${SEOS_LIBS_DIR}/seos_tls/configs/MbedTLS_Config.h"
-        # For NW stack
-        -DCLIENT_CONFIG=1
     LIBS
-        seos_core_api
-        seos_libs
-        seos_crypto
-        seos_tls_pb_with_rpc_server
+        system_config
+        os_core_api
+        os_libs
+        os_crypto
+        os_network_api
+        os_tls
+        os_tls_with_rpc_server
+)
+
+DeclareCAmkESComponent_NIC_ChanMux(
+    NwDriver_1
+    CHANMUX_CHANNEL_NIC_1_CTRL
+    CHANMUX_CHANNEL_NIC_1_DATA
 )
 
 DeclareCAmkESComponent(NwStack_1
@@ -63,28 +64,16 @@ DeclareCAmkESComponent(NwStack_1
         components/NwStack/src/network_stack.c
     C_FLAGS
         -Wall -Werror
-        -DSEOS_NWSTACK_AS_CLIENT
+        -DOS_NWSTACK_AS_CLIENT
         -DCFG_ETH_ADDR=ETH_1_ADDR
         -DCFG_ETH_GATEWAY_ADDR=ETH_1_GATEWAY_ADDR
         -DCFG_ETH_SUBNET_MASK=ETH_1_SUBNET_MASK
     LIBS
-        seos_core_api
-        seos_libs
-        seos_nw_lib
-)
-
-DeclareCAmkESComponent(NwDriver_1
-    SOURCES
-        components/NwDriver/src/nic_driver.c
-    C_FLAGS
-        -Wall -Werror
-        -DCFG_CHANMUX_CHANNEL_CRTL=CHANMUX_CHANNEL_NIC_1_CTRL
-        -DCFG_CHANMUX_CHANNEL_DATA=CHANMUX_CHANNEL_NIC_1_DATA
-    LIBS
-        seos_core_api
-        seos_libs
-        chanmux_client
-        seos_nw_driver_tap_proxy_lib
+        system_config
+        os_core_api
+        os_libs
+        os_network_lib
+        TimeServer_client
 )
 
 DeclareCAmkESComponent(NwStack_2
@@ -94,73 +83,54 @@ DeclareCAmkESComponent(NwStack_2
         components/NwStack/src/network_stack.c
     C_FLAGS
         -Wall -Werror
-        -DSEOS_NWSTACK_AS_CLIENT
+        -DOS_NWSTACK_AS_CLIENT
         -DCFG_ETH_ADDR=ETH_2_ADDR
         -DCFG_ETH_GATEWAY_ADDR=ETH_2_GATEWAY_ADDR
         -DCFG_ETH_SUBNET_MASK=ETH_2_SUBNET_MASK
     LIBS
-        seos_core_api
-        seos_libs
-        seos_nw_lib
+        system_config
+        os_core_api
+        os_libs
+        os_network_lib
+        TimeServer_client
 )
 
-DeclareCAmkESComponent(NwDriver_2
-    INCLUDES
-        config
+DeclareCAmkESComponent_NIC_ChanMux(
+    NwDriver_2
+    CHANMUX_CHANNEL_NIC_2_CTRL
+    CHANMUX_CHANNEL_NIC_2_DATA
+)
+
+DeclareCAmkESComponent_ChanMux(
+    ChanMux
+    components/ChanMux/src/ChanMux_config.c
+    system_config
+)
+
+DeclareCAmkESComponent_UART(
+    UART
+)
+
+DeclareCAmkESComponent(
+    Ticker
     SOURCES
-        components/NwDriver/src/nic_driver.c
+        components/Ticker/Ticker.c
     C_FLAGS
-        -Wall -Werror
-        -DCFG_CHANMUX_CHANNEL_CRTL=CHANMUX_CHANNEL_NIC_2_CTRL
-        -DCFG_CHANMUX_CHANNEL_DATA=CHANMUX_CHANNEL_NIC_2_DATA
+        -Wall
+        -Werror
     LIBS
-        seos_core_api
-        seos_libs
-        chanmux_client
-        seos_nw_driver_tap_proxy_lib
+        os_core_api
+        os_libs
+        TimeServer_client
 )
 
-DeclareCAmkESComponent(ChanMux
-    INCLUDES
-        config
-    SOURCES
-        components/ChanMux/src/ChanMux.c
-    C_FLAGS
-        -Wall -Werror
-    LIBS
-        seos_core_api
-        seos_libs
-        chanmux_server
+DeclareCAmkESComponent_TimeServer(
+    TimeServer
 )
 
-DeclareCAmkESComponent(UartDrv
-    SOURCES
-        components/UART/src/UartDrv.c
-        components/UART/src/qemu_uart.c
-    C_FLAGS
-        -Wall -Werror
-    LIBS
-        seos_libs
+DeclareCAmkESComponent_EntropySource(
+    EntropySource
 )
 
-DeclareCAmkESComponent(TimerClient
-    SOURCES
-        components/TimerClient/src/Timer_Client.c
-    C_FLAGS
-        -Wall -Werror
-    LIBS
-        seos_libs
-)
-
-DeclareCAmkESComponent(Timer
-    SOURCES
-        components/Timer/src/timer.c
-    C_FLAGS
-        -Wall -Werror
-    LIBS
-        seos_libs
-)
-
-DeclareCAmkESRootserver(main.camkes)
-GenerateCAmkESRootServer()
+DeclareAndCreateCamkESSystem(main.camkes)
 GenerateSimulateScript()

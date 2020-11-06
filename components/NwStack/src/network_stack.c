@@ -4,21 +4,32 @@
  *  Copyright (C) 2019, Hensoldt Cyber GmbH
  *
  */
-
 #include "SystemConfig.h"
 
 #include "LibDebug/Debug.h"
-#include "SeosError.h"
-#include "seos_api_network_stack.h"
+
+#include "OS_Error.h"
+#include "OS_NetworkStack.h"
+#include "OS_Dataport.h"
+
+#include "TimeServer.h"
+
 #include <camkes.h>
 
-
-static const seos_network_stack_config_t config =
+static OS_NetworkStack_AddressConfig_t config =
 {
     .dev_addr      = CFG_ETH_ADDR,
     .gateway_addr  = CFG_ETH_GATEWAY_ADDR,
     .subnet_mask   = CFG_ETH_SUBNET_MASK
 };
+
+//------------------------------------------------------------------------------
+// network stack's PicTCP OS adaption layer calls this.
+uint64_t
+Timer_getTimeMs(void)
+{
+    return TimeServer_getTime(TimeServer_PRECISION_MSEC);
+}
 
 
 //------------------------------------------------------------------------------
@@ -28,39 +39,32 @@ int run()
 
     // can't make this "static const" or even "static" because the data ports
     // are allocated at runtime
-    seos_camkes_network_stack_config_t camkes_config =
+    OS_NetworkStack_CamkesConfig_t camkes_config =
     {
+        .notify_init_done        = event_network_init_done_emit,
         .wait_loop_event         = event_tick_or_data_wait,
 
         .internal =
         {
             .notify_loop        = event_internal_emit,
 
-            .notify_write       = e_write_emit,
-            .wait_write         = c_write_wait,
+            .socketCB_lock      = socketControlBlockMutex_lock,
+            .socketCB_unlock    = socketControlBlockMutex_unlock,
 
-            .notify_read        = e_read_emit,
-            .wait_read          = c_read_wait,
-
-            .notify_connection  = e_conn_emit,
-            .wait_connection    = c_conn_wait,
+            .stackTS_lock       = stackThreadSafeMutex_lock,
+            .stackTS_unlock     = stackThreadSafeMutex_unlock,
         },
 
         .drv_nic =
         {
-            .wait_init_done     = event_nic_init_done_wait,
-
-            .from = // NIC -> stack
+            // NIC -> Stack
+            .from =
             {
-                .buffer         = port_nic_from,
-                .len            = PAGE_SIZE
+                .io = (void**)( &(port_nic_from)),
+                .size = NIC_DRIVER_RINGBUFFER_NUMBER_ELEMENTS
             },
-
-            .to = // stack -> NIC
-            {
-                .buffer         = port_nic_to,
-                .len            = PAGE_SIZE
-            },
+            // Stack -> NIC
+            .to = OS_DATAPORT_ASSIGN(port_nic_to),
 
             .rpc =
             {
@@ -72,28 +76,40 @@ int run()
         .app =
         {
             .notify_init_done   = event_network_init_done_emit,
-
-            .port =
-            {
-                .buffer         = port_app_io,
-                .len            = PAGE_SIZE
-            },
         }
     };
 
-    seos_err_t ret = seos_network_stack_run(&camkes_config, &config);
-    if (ret != SEOS_SUCCESS)
+    static OS_NetworkStack_SocketResources_t
+ socks = {
+                .notify_write       = e_write_emit,
+                .wait_write         = c_write_wait,
+
+                .notify_read        = e_read_emit,
+                .wait_read          = c_read_wait,
+
+                .notify_connection  = e_conn_emit,
+                .wait_connection    = c_conn_wait,
+
+                .buf = OS_DATAPORT_ASSIGN(port_app_io)
+            };
+
+    camkes_config.internal.number_of_sockets = 1;
+    camkes_config.internal.sockets = &socks;
+
+    OS_Error_t ret = OS_NetworkStack_run(&camkes_config, &config);
+    if (ret != OS_SUCCESS)
     {
-        Debug_LOG_FATAL("[NwStack '%s'] seos_network_stack_run() failed, error %d",
+        Debug_LOG_FATAL("[NwStack '%s'] OS_NetworkStack_run() failed, error %d",
                         get_instance_name(), ret);
-        return -1;
+        return ret;
     }
 
-    // actually, seos_network_stack_run() is not supposed to return with
-    // SEOS_SUCCESS. We have to assume this is a graceful shutdown for some
+
+    // actually, OS_NetworkStack_run() is not supposed to return with
+    // OS_SUCCESS. We have to assume this is a graceful shutdown for some
     // reason
     Debug_LOG_WARNING("[NwStack '%s'] graceful termination",
-                        get_instance_name());
+                      get_instance_name());
 
     return 0;
 }

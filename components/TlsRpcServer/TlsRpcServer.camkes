@@ -5,26 +5,31 @@
  *
  */
 
-import <if_OS_socket.camkes>;
+import <if_OS_Socket.camkes>;
 import <if_OS_Tls.camkes>;
 
 procedure TlsRpcServerInf {
-    include "SeosError.h";
+    include "OS_Error.h";
 
-    seos_err_t  init            ();
-    seos_err_t  connectSocket   ();
-    seos_err_t  closeSocket     ();
-    seos_err_t  free            ();
+    OS_Error_t  init            ();
+    OS_Error_t  connectSocket   ();
+    OS_Error_t  closeSocket     ();
+    OS_Error_t  free            ();
 };
 
 component TlsRpcServer {
     // Networking
-    uses        if_OS_socket                network_stack_rpc;
+    uses        if_OS_Socket                network_stack_rpc;
     dataport    Buf                         NwAppDataPort;
     consumes    ServiceReady                event_network_stack_init_done;
 
     // TLS
     provides    TlsRpcServerInf             TlsRpcServer;
-    provides    if_OS_Tls                   OS_TlsRpcServer;
+    provides    if_OS_Tls                   tls_rpc;
     dataport    Buf                         tlsServerDataport;
+
+    //-------------------------------------------------
+    // EntropySource
+    uses        if_OS_Entropy               entropy_rpc;
+    dataport    Buf                         entropy_port;
 }

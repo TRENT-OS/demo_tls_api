@@ -11,6 +11,7 @@
 #include "OS_Crypto.h"
 #include "OS_Tls.h"
 #include "OS_Network.h"
+#include "OS_NetworkStackClient.h"
 
 #include "LibDebug/Debug.h"
 
@@ -19,25 +20,29 @@
 
 #define MAX_NW_SIZE 256
 
-extern seos_err_t
+extern OS_Error_t
 OS_NetworkAPP_RT(
     OS_Network_Context_t ctx);
 
-static int
-entropyFunc(
-    void*          ctx,
-    unsigned char* buf,
-    size_t         len);
-
 static OS_Crypto_Config_t cryptoCfg =
 {
-    .mode = OS_Crypto_MODE_LIBRARY,
-    .mem.malloc = malloc,
-    .mem.free = free,
-    .impl.lib.rng.entropy = entropyFunc,
+    .mode = OS_Crypto_MODE_LIBRARY_ONLY,
+    .library.entropy = OS_CRYPTO_ASSIGN_Entropy(entropy_rpc, entropy_port)
 };
 
 // Private functions -----------------------------------------------------------
+
+static void
+initNetworkClientApi()
+{
+    static OS_NetworkStackClient_SocketDataports_t config;
+    static OS_Dataport_t dataport = OS_DATAPORT_ASSIGN(NwAppDataPort);
+
+    config.number_of_sockets = 1;
+
+    config.dataport = &dataport;
+    OS_NetworkStackClient_init(&config);
+}
 
 static int
 sendFunc(
@@ -45,12 +50,12 @@ sendFunc(
     const unsigned char* buf,
     size_t               len)
 {
-    seos_err_t err;
+    OS_Error_t err;
     OS_NetworkSocket_Handle_t* socket = (OS_NetworkSocket_Handle_t*) ctx;
     size_t n;
 
     n = len > MAX_NW_SIZE ? MAX_NW_SIZE : len;
-    if ((err = OS_NetworkSocket_write(*socket, buf, &n)) != SEOS_SUCCESS)
+    if ((err = OS_NetworkSocket_write(*socket, buf, n, &n)) != OS_SUCCESS)
     {
         Debug_LOG_ERROR("Error during socket write...error:%d", err);
         return -1;
@@ -65,12 +70,12 @@ recvFunc(
     unsigned char* buf,
     size_t         len)
 {
-    seos_err_t err;
+    OS_Error_t err;
     OS_NetworkSocket_Handle_t* socket = (OS_NetworkSocket_Handle_t*) ctx;
     size_t n;
 
     n = len > MAX_NW_SIZE ? MAX_NW_SIZE : len;
-    if ((err = OS_NetworkSocket_read(*socket, buf, &n)) != SEOS_SUCCESS)
+    if ((err = OS_NetworkSocket_read(*socket, buf, n, &n)) != OS_SUCCESS)
     {
         Debug_LOG_ERROR("Error during socket read...error:%d", err);
         return -1;
@@ -79,18 +84,7 @@ recvFunc(
     return n;
 }
 
-static int
-entropyFunc(
-    void*          ctx,
-    unsigned char* buf,
-    size_t         len)
-{
-    // TODO: we have no entropy function available yet
-    memset(buf, 0, len);
-    return 0;
-}
-
-static seos_err_t
+static OS_Error_t
 connectSocket(
     OS_NetworkSocket_Handle_t* socket)
 {
@@ -105,7 +99,7 @@ connectSocket(
     return OS_NetworkSocket_create(NULL, &socketCfg, socket);
 }
 
-static seos_err_t
+static OS_Error_t
 closeSocket(
     OS_NetworkSocket_Handle_t* socket)
 {
@@ -121,8 +115,8 @@ readAndPrintWebPage(
         "GET / HTTP/1.0\r\nHost: www.example.org\r\nConnection: close\r\n\r\n";
     char buffer[4096] = {0};
 
-    seos_err_t err = OS_Tls_init(&hTls, config);
-    if (SEOS_SUCCESS != err)
+    OS_Error_t err = OS_Tls_init(&hTls, config);
+    if (OS_SUCCESS != err)
     {
         Debug_LOG_ERROR("OS_Tls_init() failed with error code %d", err);
         goto err0;
@@ -130,7 +124,7 @@ readAndPrintWebPage(
     Debug_LOG_INFO("TLS Library successfully initialized");
 
     err = OS_Tls_handshake(hTls);
-    if (SEOS_SUCCESS != err)
+    if (OS_SUCCESS != err)
     {
         Debug_LOG_ERROR("OS_Tls_handshake() failed with error code %d", err);
         goto err1;
@@ -138,7 +132,7 @@ readAndPrintWebPage(
     Debug_LOG_INFO("TLS handshake succeeded");
 
     err = OS_Tls_write(hTls, request, strlen(request));
-    if (SEOS_SUCCESS != err)
+    if (OS_SUCCESS != err)
     {
         Debug_LOG_ERROR("OS_Tls_write() failed with error code %d", err);
         goto err1;
@@ -152,7 +146,7 @@ readAndPrintWebPage(
     {
         size_t wantedToRead = read;
         err = OS_Tls_read(hTls, needle, &read);
-        if (SEOS_SUCCESS != err)
+        if (OS_SUCCESS != err)
         {
             Debug_LOG_ERROR("HTTP page retrivial failed while reading, OS_Tls_read returned error code %d, bytes read %zu",
                             err, (size_t) (needle - buffer));
@@ -178,14 +172,14 @@ readAndPrintWebPage(
     Debug_LOG_INFO("Got HTTP Page:\n%s", buffer);
  err1:
  {
-    seos_err_t err = OS_Tls_free(hTls);
-    if (SEOS_SUCCESS != err)
+    OS_Error_t err = OS_Tls_free(hTls);
+    if (OS_SUCCESS != err)
     {
         Debug_LOG_ERROR("OS_Tls_free() failed with error code %d", err);
     }
  }
  err0:
-    return (SEOS_SUCCESS == err);
+    return (OS_SUCCESS == err);
 }
 
 bool
@@ -195,27 +189,28 @@ demoAsLibrary(void)
     OS_Tls_Config_t tlsConfig =
     {
         .mode = OS_Tls_MODE_LIBRARY,
-        .config.library = {
+        .library = {
             .socket = {
-                .context = &socket,
-                .recv = recvFunc,
-                .send = sendFunc,
+                .context    = &socket,
+                .recv       = recvFunc,
+                .send       = sendFunc,
             },
-            .flags = OS_TlsLib_FLAG_DEBUG,
+            .flags = OS_Tls_FLAG_NONE,
             .crypto = {
+                .policy = NULL,
                 .caCert = TLS_HOST_CERT,
                 .cipherSuites = {
-                    OS_TlsLib_CIPHERSUITE_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-                    OS_TlsLib_CIPHERSUITE_DHE_RSA_WITH_AES_128_GCM_SHA256
+                    OS_Tls_CIPHERSUITE_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+                    OS_Tls_CIPHERSUITE_DHE_RSA_WITH_AES_128_GCM_SHA256
                 },
                 .cipherSuitesLen = 2
-            },
+            }
         }
     };
 
-    seos_err_t err = OS_Crypto_init(&tlsConfig.config.library.crypto.handle,
+    OS_Error_t err = OS_Crypto_init(&tlsConfig.library.crypto.handle,
                                     &cryptoCfg);
-    if (SEOS_SUCCESS != err)
+    if (OS_SUCCESS != err)
     {
         Debug_LOG_ERROR("OS_Crypto_init() failed with error code %d", err);
         goto err0;
@@ -223,7 +218,7 @@ demoAsLibrary(void)
     Debug_LOG_INFO("Crypto Library for TLS successfully initialized");
 
     err = connectSocket(&socket);
-    if (SEOS_SUCCESS != err)
+    if (OS_SUCCESS != err)
     {
         Debug_LOG_ERROR("connectSocket() failed with err %d", err);
         goto err1;
@@ -237,8 +232,8 @@ demoAsLibrary(void)
     }
 err2:
 {
-    seos_err_t err = closeSocket(&socket);
-    if (SEOS_SUCCESS != err)
+    OS_Error_t err = closeSocket(&socket);
+    if (OS_SUCCESS != err)
     {
         Debug_LOG_ERROR("closeSocket() failed with error code %d", err);
     }
@@ -249,8 +244,8 @@ err2:
 }
 err1:
 {
-    seos_err_t err = OS_Crypto_free(tlsConfig.config.library.crypto.handle);
-    if (SEOS_SUCCESS != err)
+    OS_Error_t err = OS_Crypto_free(tlsConfig.library.crypto.handle);
+    if (OS_SUCCESS != err)
     {
         Debug_LOG_ERROR("OS_Crypto_free() failed with error code %d", err);
     }
@@ -260,20 +255,20 @@ err1:
     }
 }
 err0:
-    return (SEOS_SUCCESS == err);
+    return (OS_SUCCESS == err);
 }
 
-seos_err_t
+OS_Error_t
 demoAsComponent(void)
 {
     OS_Tls_Config_t tlsConfig =
     {
-        .mode = OS_Tls_MODE_RPC_CLIENT,
-        .config.client.dataport = tlsClientDataport
+        .mode = OS_Tls_MODE_CLIENT,
+        .dataport = OS_DATAPORT_ASSIGN(tlsClientDataport)
     };
 
-    seos_err_t err = TlsRpcServer_init();
-    if (SEOS_SUCCESS != err)
+    OS_Error_t err = TlsRpcServer_init();
+    if (OS_SUCCESS != err)
     {
         Debug_LOG_ERROR("TlsRpcServer_init() failed with error code %d", err);
         goto err0;
@@ -281,7 +276,7 @@ demoAsComponent(void)
     Debug_LOG_INFO("TLS RPC Server successfully initialized");
 
     err = TlsRpcServer_connectSocket();
-    if (SEOS_SUCCESS != err)
+    if (OS_SUCCESS != err)
     {
         Debug_LOG_ERROR("TlsRpcServer_connectSocket() failed with error code %d", err);
         goto err1;
@@ -295,8 +290,8 @@ demoAsComponent(void)
     }
  err2:
  {
-    seos_err_t err = TlsRpcServer_closeSocket();
-    if (SEOS_SUCCESS != err)
+    OS_Error_t err = TlsRpcServer_closeSocket();
+    if (OS_SUCCESS != err)
     {
         Debug_LOG_ERROR("TlsRpcServer_closeSocket() failed with error code %d", err);
     }
@@ -307,8 +302,8 @@ demoAsComponent(void)
  }
  err1:
  {
-    seos_err_t err = TlsRpcServer_free();
-    if (SEOS_SUCCESS != err)
+    OS_Error_t err = TlsRpcServer_free();
+    if (OS_SUCCESS != err)
     {
         Debug_LOG_ERROR("TlsRpcServer_free() failed with error code %d", err);
     }
@@ -318,12 +313,13 @@ demoAsComponent(void)
     }
  }
 err0:
-    return (SEOS_SUCCESS == err);
+    return (OS_SUCCESS == err);
 }
 
 // Public functions ------------------------------------------------------------
 int run(void)
 {
+    initNetworkClientApi();
     OS_NetworkAPP_RT(NULL);
 
     Debug_LOG_INFO("Running TLS API in 'library' mode");

@@ -5,79 +5,53 @@
  *
  */
 
-import <if_OS_nic.camkes>;
-import <if_OS_socket.camkes>;
+import <if_OS_Nic.camkes>;
+import <if_OS_Socket.camkes>;
+import <if_OS_Timer.camkes>;
 
-import "../TimerClient/TimerClientInf.camkes";
+#include "NIC_ChanMux/NIC_ChanMux.camkes"
+
+#define DECLARE_BODY()\
+    control;\
+\
+    consumes    EventDataAvailable      event_tick_or_data;\
+    emits       EventDataAvailable      event_internal;\
+\
+    emits       NwStack_WrEv            e_write;\
+    consumes    NwStack_WrEv            c_write;\
+\
+    emits       NwStack_RdEv            e_read;\
+    consumes    NwStack_RdEv            c_read;\
+\
+    emits       NwStack_ConnEv          e_conn;\
+    consumes    NwStack_ConnEv          c_conn;\
+\
+    has         mutex                   allocatorMutex;\
+    has         mutex                   nwstackMutex;\
+\
+    has         mutex                   socketControlBlockMutex;\
+    has         mutex                   stackThreadSafeMutex;\
+\
+   /*-------------------------------------------------*/\
+   /* interface TimeServer */\
+    uses        if_OS_Timer           timeServer_rpc;\
+\
+    /*-------------------------------------------------*/\
+    /* interface Ethernet NIC driver */\
+    uses        if_OS_Nic                       nic_driver;\
+    dataport    Buf(NIC_DRIVER_RINGBUFFER_SIZE) port_nic_from;\
+    dataport    Buf                             port_nic_to;\
+\
+    /*-------------------------------------------------*/\
+    /* interface Application */\
+    provides    if_OS_Socket           network_stack_rpc;\
+    dataport    Buf                    port_app_io;\
+    emits       ServiceReady           event_network_init_done;\
 
 component NwStack_1 {
-    control;
-
-    consumes    NwStack_DataAvailable   event_tick_or_data;
-    emits       NwStack_DataAvailable   event_internal;
-
-    emits       NwStack_WrEv            e_write;
-    consumes    NwStack_WrEv            c_write;
-
-    emits       NwStack_RdEv            e_read;
-    consumes    NwStack_RdEv            c_read;
-
-    emits      NwStack_ConnEv           e_conn;
-    consumes   NwStack_ConnEv           c_conn;
-
-    //-------------------------------------------------
-    // interface Timer
-    uses        timer_client_inf        Timer;
-
-    //-------------------------------------------------
-    // interface Ethernet NIC driver
-    uses        if_OS_nic               nic_driver;
-    dataport    Buf                     port_nic_from; // NIC -> stack
-    dataport    Buf                     port_nic_to;   // stack -> NIC
-    consumes    ServiceReady            event_nic_init_done;
-
-    //-------------------------------------------------
-    // interface Application
-    provides    if_OS_socket            network_stack_rpc;
-    dataport    Buf                     port_app_io;
-    emits       ServiceReady            event_network_init_done;
-
-    has         mutex                   allocatorMutex;
-    has         mutex                   nwstackMutex;
+    DECLARE_BODY()
 }
 
 component NwStack_2 {
-    control;
-
-    consumes   NwStack_DataAvailable    event_tick_or_data;
-    emits      NwStack_DataAvailable    event_internal;
-
-    emits      NwStack_WrEv             e_write;
-    consumes   NwStack_WrEv             c_write;
-
-    emits      NwStack_RdEv             e_read;
-    consumes   NwStack_RdEv             c_read;
-
-    emits      NwStack_ConnEv           e_conn;
-    consumes   NwStack_ConnEv           c_conn;
-
-    //-------------------------------------------------
-    // interface Timer
-    uses        timer_client_inf        Timer;
-
-    //-------------------------------------------------
-    // interface Ethernet NIC driver
-    uses        if_OS_nic               nic_driver;
-    dataport    Buf                     port_nic_from; // NIC -> stack
-    dataport    Buf                     port_nic_to;   // stack -> NIC
-    consumes    ServiceReady            event_nic_init_done;
-
-    //-------------------------------------------------
-    // interface Application
-    provides   if_OS_socket            network_stack_rpc;
-    dataport   Buf                     port_app_io;
-    emits      ServiceReady            event_network_init_done;
-
-    has         mutex                   allocatorMutex;
-    has         mutex                   nwstackMutex;
+    DECLARE_BODY()
 }

@@ -25,30 +25,31 @@
 
 
 //-----------------------------------------------------------------------------
+// ChanMux
+//-----------------------------------------------------------------------------
+#define CHANMUX_CHANNEL_NIC_1_CTRL  4
+#define CHANMUX_CHANNEL_NIC_1_DATA  5
+#define CHANMUX_CHANNEL_NIC_2_CTRL  7
+#define CHANMUX_CHANNEL_NIC_2_DATA  8
+
+//    CHANMUX_NUM_CHANNELS        // 9
+
+#define CHANMUX_ID_NIC_1    101
+#define CHANMUX_ID_NIC_2    102
+
+
+//-----------------------------------------------------------------------------
 // Memory
 //-----------------------------------------------------------------------------
 
 #define Memory_Config_USE_STDLIB_ALLOC
 
-
 //-----------------------------------------------------------------------------
-// ChanMUX
+// NIC driver
 //-----------------------------------------------------------------------------
-
-enum
-{
-    CHANMUX_CHANNEL_UNUSED_0,   // 0
-    CHANMUX_CHANNEL_UNUSED_1,   // 1
-    CHANMUX_CHANNEL_UNUSED_2,   // 2
-    CHANMUX_CHANNEL_UNUSED_3,   // 3
-    CHANMUX_CHANNEL_NIC_1_CTRL, // 4
-    CHANMUX_CHANNEL_NIC_1_DATA, // 5
-    CHANMUX_CHANNEL_UNUSED_6,   // 6
-    CHANMUX_CHANNEL_NIC_2_CTRL, // 7
-    CHANMUX_CHANNEL_NIC_2_DATA, // 8
-
-    CHANMUX_NUM_CHANNELS        // 9
-};
+#define NIC_DRIVER_RINGBUFFER_NUMBER_ELEMENTS 16
+#define NIC_DRIVER_RINGBUFFER_SIZE                                             \
+    (NIC_DRIVER_RINGBUFFER_NUMBER_ELEMENTS * 4096)
 
 
 //-----------------------------------------------------------------------------

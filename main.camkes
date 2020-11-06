@@ -1,11 +1,32 @@
 import <std_connector.camkes>;
 
-import "components/ChanMux/ChanMux.camkes";
+import <if_OS_Entropy.camkes>;
+
+#include "config/SystemConfig.h"
+
+#include "UART/Uart.camkes"
+DECLARE_COMPONENT_UART(UART)
+
+#include "ChanMux/ChanMux.camkes"
+ChanMux_DEFINE_COMPONENT(ChanMux,
+        nwDriver_1, data,
+        nwDriver_1, ctrl,
+        nwDriver_2, data,
+        nwDriver_2, ctrl)
+
+#include "NIC_ChanMux/NIC_ChanMux.camkes"
+DECLARE_COMPONENT_NIC_ChanMux(NwDriver_1)
+DECLARE_COMPONENT_NIC_ChanMux(NwDriver_2)
+
+#include "TimeServer/camkes/TimeServer.camkes"
+DECLARE_COMPONENT_TimeServer(TimeServer)
+
+#include "EntropySource/camkes/EntropySource.camkes"
+DECLARE_COMPONENT_EntropySource(EntropySource)
+
 import "components/NwStack/network_stack.camkes";
-import "components/NwDriver/nic_driver.camkes";
-import "components/UART/Uart.camkes";
-import "components/Timer/Timer.camkes";
-import "components/TimerClient/TimerClient.camkes";
+import "components/Ticker/Ticker.camkes";
+
 import "components/TlsRpcServer/TlsRpcServer.camkes";
 
 import "components/Demo/demo_OS_Tls.camkes";
@@ -13,62 +34,57 @@ import "components/Demo/demo_OS_Tls.camkes";
 assembly {
     composition {
         //----------------------------------------------------------------------
-        // MUX
-        //----------------------------------------------------------------------
-        component ChanMux           chanMux;
-
-        //----------------------------------------------------------------------
         // UART
         //----------------------------------------------------------------------
-        component  UartDev          uartDev;
-        component  UartDrv          uartDrv;
-
-        connection seL4HardwareMMIO uart_memio          (from uartDrv.uartRegBase,    to uartDev.uartRegBase);
-        connection seL4RPCCall      uart_chanmux        (from uartDrv.Output,         to chanMux.ChanMuxOut);
-        connection seL4RPCCall      chanmux_uart        (from chanMux.Output,         to uartDrv.UartDrv);
-        connection seL4SharedData   uart_dataConnection (from chanMux.outputDataPort, to uartDrv.inputDataPort);
+        DECLARE_AND_CONNECT_INSTANCE_UART(UART, uartDrv)
 
         //----------------------------------------------------------------------
-        // Timer
+        // MUX
         //----------------------------------------------------------------------
-        component  Timerbase             timerBase;
-        component  Timer                 timer;
-        component  TimerClient           timerClient;
+        ChanMux_DECLARE_AND_CONNECT_INSTANCE_TO_UART(ChanMux, chanMux, uartDrv)
 
-        connection seL4HardwareMMIO      timer_mem            (from timer.reg,         to timerBase.reg);
-        connection seL4HardwareInterrupt timer_irq            (from timerBase.irq,     to timer.irq);
-        connection seL4RPCCall           timerClient_timer    (from timerClient.Timer, to timer.Timer);
-        connection seL4RPCCall           nwStack_timerClient  (from nwStack_1.Timer,   to timerClient.TimerClient);
-        connection seL4RPCCall           nwStack2_timerClient (from nwStack_2.Timer,   to timerClient.TimerClient);
+        //----------------------------------------------------------------------
+        // Ticker
+        //----------------------------------------------------------------------
+        component  Ticker ticker_1;
+        connection seL4NotificationNative nwStack_1_tick (from ticker_1.e_timeout_nwstacktick, to nwStack_1.event_tick_or_data);
+        component  Ticker ticker_2;
+        connection seL4NotificationNative nwStack_2_tick (from ticker_2.e_timeout_nwstacktick, to nwStack_2.event_tick_or_data);
+
+        //----------------------------------------------------------------------
+        // TimeServer
+        //----------------------------------------------------------------------
+        DECLARE_AND_CONNECT_INSTANCE_TimeServer(
+            TimeServer,
+            timeServer,
+            ticker_1.timeServer_rpc,
+            ticker_2.timeServer_rpc,
+            nwStack_1.timeServer_rpc,
+            nwStack_2.timeServer_rpc)
 
         //----------------------------------------------------------------------
         // Network Driver #1
         //----------------------------------------------------------------------
-        component  NwDriver_1       nwDriver_1;
+        component  NwDriver_1 nwDriver_1;
 
-        connection seL4Notification NwDriver_Chanmux_dataAvail       (from chanMux.event_nic_1_hasData,        to nwDriver_1.ChanMuxSignal_dataAvailable);
-        connection seL4RPCCall      nwDriver_chanmux                 (from nwDriver_1.ChanMuxRpc,              to chanMux.ChanMux_driver);
-        connection seL4SharedData   NwDriver_Chanmux_port_ctrl       (from nwDriver_1.port_chanMux_ctrl,       to chanMux.port_nic_1_ctrl);
-        connection seL4SharedData   NwDriver_Chanmux_port_data_read  (from nwDriver_1.port_chanMux_data_read,  to chanMux.port_nic_1_data_read);
-        connection seL4SharedData   NwDriver_Chanmux_port_data_write (from nwDriver_1.port_chanMux_data_write, to chanMux.port_nic_1_data_write);
+        ChanMux_INSTANCE_CONNECT_INTERFACE(chanMux, nwDriver_1)
+        ChanMux_INSTANCE_CONNECT_CHANNEL(chanMux, nwDriver_1, data)
+        ChanMux_INSTANCE_CONNECT_CHANNEL(chanMux, nwDriver_1, ctrl)
 
         //----------------------------------------------------------------------
         // Network Stack #1
         //----------------------------------------------------------------------
-        component  NwStack_1              nwStack_1;
+        component  NwStack_1  nwStack_1;
 
         connection seL4NotificationNative NwStackdataAvail2 (from nwStack_1.event_internal, to nwStack_1.event_tick_or_data);
         connection seL4Notification       NwStackEventsRxd1 (from nwStack_1.e_write,        to nwStack_1.c_write);
         connection seL4Notification       NwStackEventsRxd2 (from nwStack_1.e_read,         to nwStack_1.c_read);
         connection seL4Notification       NwStackEventsRxd3 (from nwStack_1.e_conn,         to nwStack_1.c_conn);
 
-        connection seL4NotificationNative NwStackdataAvail3 (from timerClient.e_timeout_nwstacktick_1, to nwStack_1.event_tick_or_data);
-
-        connection seL4NotificationNative NwStackdataAvail1                (from nwDriver_1.event_nwstack_hasData, to nwStack_1.event_tick_or_data);
-        connection seL4Notification       NwDriver_NwStack_initdone        (from nwDriver_1.event_init_done,       to nwStack_1.event_nic_init_done);
-        connection seL4RPCCall            nwStack_NwDriver                 (from nwStack_1.nic_driver,             to nwDriver_1.nic_driver);
-        connection seL4SharedData         NwDriver_NwStack_ReadConnection  (from nwDriver_1.port_nwStack_to,       to nwStack_1.port_nic_from);
-        connection seL4SharedData         NwDriver_NwStack_WriteConnection (from nwDriver_1.port_nwStack_from,     to nwStack_1.port_nic_to);
+        connection seL4NotificationNative NwStackdataAvail1                (from nwDriver_1.nic_event_hasData,  to nwStack_1.event_tick_or_data);
+        connection seL4RPCCall            nwStack_NwDriver                 (from nwStack_1.nic_driver,          to nwDriver_1.nic_rpc);
+        connection seL4SharedData         NwDriver_NwStack_ReadConnection  (from nwDriver_1.nic_port_to,        to nwStack_1.port_nic_from);
+        connection seL4SharedData         NwDriver_NwStack_WriteConnection (from nwDriver_1.nic_port_from,      to nwStack_1.port_nic_to);
 
         //----------------------------------------------------------------------
         // Network Stack App #1
@@ -79,34 +95,35 @@ assembly {
         connection seL4RPCCall      NwApp_nwStack        (from demo.network_stack_rpc,         to nwStack_1.network_stack_rpc);
         connection seL4SharedData   NwApp_dataConnection (from demo.NwAppDataPort,             to nwStack_1.port_app_io);
 
+        DECLARE_AND_CONNECT_INSTANCE_EntropySource(
+            EntropySource,
+            entropySource_demo,
+            demo.entropy_rpc,
+            demo.entropy_port)
+
         //----------------------------------------------------------------------
         // Network Driver #2
         //----------------------------------------------------------------------
-        component  NwDriver_2       nwDriver_2;
+        component  NwDriver_2 nwDriver_2;
 
-        connection seL4Notification NwDriver_Chanmux_dataAvail_2       (from chanMux.event_nic_2_hasData,        to nwDriver_2.ChanMuxSignal_dataAvailable);
-        connection seL4RPCCall      nwDriver_chanmux_2                 (from nwDriver_2.ChanMuxRpc,              to chanMux.ChanMux_driver);
-        connection seL4SharedData   NwDriver_Chanmux_port_ctrl_2       (from nwDriver_2.port_chanMux_ctrl,       to chanMux.port_nic_2_ctrl);
-        connection seL4SharedData   NwDriver_Chanmux_port_data_read_2  (from nwDriver_2.port_chanMux_data_read,  to chanMux.port_nic_2_data_read);
-        connection seL4SharedData   NwDriver_Chanmux_port_data_write_2 (from nwDriver_2.port_chanMux_data_write, to chanMux.port_nic_2_data_write);
+        ChanMux_INSTANCE_CONNECT_INTERFACE(chanMux, nwDriver_2)
+        ChanMux_INSTANCE_CONNECT_CHANNEL(chanMux, nwDriver_2, data)
+        ChanMux_INSTANCE_CONNECT_CHANNEL(chanMux, nwDriver_2, ctrl)
 
         //----------------------------------------------------------------------
         // Network Stack #2
         //----------------------------------------------------------------------
-        component  NwStack_1              nwStack_2;
+        component  NwStack_2  nwStack_2;
 
         connection seL4NotificationNative NwStackdataAvail2_2 (from nwStack_2.event_internal, to nwStack_2.event_tick_or_data);
         connection seL4Notification       NwStackEventsRxd1_2 (from nwStack_2.e_write,        to nwStack_2.c_write);
         connection seL4Notification       NwStackEventsRxd2_2 (from nwStack_2.e_read,         to nwStack_2.c_read);
         connection seL4Notification       NwStackEventsRxd3_2 (from nwStack_2.e_conn,         to nwStack_2.c_conn);
 
-        connection seL4NotificationNative NwStackdataAvail3_2 (from timerClient.e_timeout_nwstacktick_2,  to nwStack_2.event_tick_or_data);
-
-        connection seL4NotificationNative NwDriver_NwStack_dataAvail_2       (from nwDriver_2.event_nwstack_hasData, to nwStack_2.event_tick_or_data);
-        connection seL4Notification       NwDriver_NwStack_initdone_2        (from nwDriver_2.event_init_done,       to nwStack_2.event_nic_init_done);
-        connection seL4RPCCall            nwStack_NwDriver_2                 (from nwStack_2.nic_driver,             to nwDriver_2.nic_driver);
-        connection seL4SharedData         NwDriver_NwStack_ReadConnection_2  (from nwDriver_2.port_nwStack_to,       to nwStack_2.port_nic_from);
-        connection seL4SharedData         NwDriver_NwStack_WriteConnection_2 (from nwDriver_2.port_nwStack_from,     to nwStack_2.port_nic_to);
+        connection seL4NotificationNative NwStackdataAvail1_2               (from nwDriver_2.nic_event_hasData,  to nwStack_2.event_tick_or_data);
+        connection seL4RPCCall            nwStack_NwDriver_2                (from nwStack_2.nic_driver,          to nwDriver_2.nic_rpc);
+        connection seL4SharedData         NwDriver_NwStack_ReadConnection_2 (from nwDriver_2.nic_port_to,        to nwStack_2.port_nic_from);
+        connection seL4SharedData         NwDriver_NwStack_WriteConnection_2(from nwDriver_2.nic_port_from,      to nwStack_2.port_nic_to);
 
         //----------------------------------------------------------------------
         // Network Stack App #2
@@ -117,29 +134,29 @@ assembly {
         connection seL4RPCCall      NwApp_nwStack_2        (from tlsRpcServer.network_stack_rpc,        to nwStack_2.network_stack_rpc);
         connection seL4SharedData   NwApp_dataConnection_2 (from tlsRpcServer.NwAppDataPort,            to nwStack_2.port_app_io);
 
+        DECLARE_AND_CONNECT_INSTANCE_EntropySource(
+            EntropySource,
+            entropySource_tlsServer,
+            tlsRpcServer.entropy_rpc,
+            tlsRpcServer.entropy_port)
+
         //----------------------------------------------------------------------
         // Connecting DEMO_TLS to tlsRpcServer
         //----------------------------------------------------------------------
         connection seL4RPCCall      demoTls_tlsRpcServer        (from demo.TlsRpcServer,         to tlsRpcServer.TlsRpcServer);
-        connection seL4RPCCall      demoTls_TlsApi              (from demo.OS_TlsRpcServer,      to tlsRpcServer.OS_TlsRpcServer);
+        connection seL4RPCCall      demoTls_TlsApi              (from demo.tls_rpc,              to tlsRpcServer.tls_rpc);
         connection seL4SharedData   tlsDataport                 (from demo.tlsClientDataport,    to tlsRpcServer.tlsServerDataport);
     }
 
     configuration {
-        uartDev.uartRegBase_paddr  = 0xE0000000;
-        uartDev.uartRegBase_size   = 0x1000;
-        uartDrv.inputDataPort       = "R";
-
-        timerBase.reg_paddr = 0xF8001000;   // paddr of mmio registers
-        timerBase.reg_size = 0x1000;        // size of mmio registers
-        timerBase.irq_irq_number = 42;      // timer irq number
-
-        /* assign an initial value to semaphore */
-        timer.sem_value = 0;
+        CONFIGURE_INSTANCE_UART(
+            uartDrv,
+            CFG_CHANMUX_DEFAULT_UART_PHYS_ADDR,
+            CFG_CHANMUX_DEFAULT_UART_INTR)
 
         // assign endpoint badges for n:1 RPC interface of ChanMUX. The generic
         // naming scheme is <component>.<interface>_attributes = <badge ID>
-        nwDriver_1.ChanMuxRpc_attributes = 101;
-        nwDriver_2.ChanMuxRpc_attributes = 102;
+        ChanMux_ASSIGN_CLIENT_BADGE(chanMux, nwDriver_1, CHANMUX_ID_NIC_1)
+        ChanMux_ASSIGN_CLIENT_BADGE(chanMux, nwDriver_2, CHANMUX_ID_NIC_2)
     }
 }
