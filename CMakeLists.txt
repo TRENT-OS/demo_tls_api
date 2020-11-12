@@ -30,25 +30,14 @@ DeclareCAmkESComponent(demo_OS_Tls
         os_crypto
         os_network_api
         os_tls
-        os_tls_with_rpc_client
+        TlsServer_client
 )
 
-DeclareCAmkESComponent(TlsRpcServer
-    INCLUDES
-        config
-        components/TlsRpcServer/src
-    SOURCES
-        components/TlsRpcServer/src/TlsRpcServer.c
-    C_FLAGS
-        -Wall -Werror
+DeclareCAmkESComponent_TlsServer(
+    TlsServer
     LIBS
-        system_config
-        os_core_api
-        os_libs
         os_crypto
         os_network_api
-        os_tls
-        os_tls_with_rpc_server
 )
 
 DeclareCAmkESComponent_NIC_ChanMux(
@@ -101,14 +90,10 @@ DeclareCAmkESComponent_NIC_ChanMux(
     CHANMUX_CHANNEL_NIC_2_DATA
 )
 
-DeclareCAmkESComponent_ChanMux(
+DeclareCAmkESComponents_ChanMux_UART(
     ChanMux
     components/ChanMux/src/ChanMux_config.c
     system_config
-)
-
-DeclareCAmkESComponent_UART(
-    UART
 )
 
 DeclareCAmkESComponent(

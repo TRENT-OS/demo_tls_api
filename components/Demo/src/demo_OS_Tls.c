@@ -6,7 +6,7 @@
  */
 
 #include "DemoConfig.h"
-#include "TlsRpcServer.h"
+#include "TlsServer.h"
 
 #include "OS_Crypto.h"
 #include "OS_Tls.h"
@@ -26,8 +26,10 @@ OS_NetworkAPP_RT(
 
 static OS_Crypto_Config_t cryptoCfg =
 {
-    .mode = OS_Crypto_MODE_LIBRARY_ONLY,
-    .library.entropy = OS_CRYPTO_ASSIGN_Entropy(entropy_rpc, entropy_port)
+    .mode = OS_Crypto_MODE_LIBRARY,
+    .entropy = IF_OS_ENTROPY_ASSIGN(
+        entropy_rpc,
+        entropy_port),
 };
 
 // Private functions -----------------------------------------------------------
@@ -113,7 +115,6 @@ readAndPrintWebPage(
     OS_Tls_Handle_t hTls;
     const char request[] =
         "GET / HTTP/1.0\r\nHost: www.example.org\r\nConnection: close\r\n\r\n";
-    char buffer[4096] = {0};
 
     OS_Error_t err = OS_Tls_init(&hTls, config);
     if (OS_SUCCESS != err)
@@ -131,7 +132,8 @@ readAndPrintWebPage(
     }
     Debug_LOG_INFO("TLS handshake succeeded");
 
-    err = OS_Tls_write(hTls, request, strlen(request));
+    size_t to_write = strlen(request);
+    err = OS_Tls_write(hTls, request, &to_write);
     if (OS_SUCCESS != err)
     {
         Debug_LOG_ERROR("OS_Tls_write() failed with error code %d", err);
@@ -139,46 +141,44 @@ readAndPrintWebPage(
     }
     Debug_LOG_INFO("HTTP request successfully sent");
 
+    static char buffer[4096] = {0};
     char* needle = buffer;
     size_t read = sizeof(buffer);
 
     while (read > 0)
     {
-        size_t wantedToRead = read;
         err = OS_Tls_read(hTls, needle, &read);
-        if (OS_SUCCESS != err)
+        switch (err)
         {
-            Debug_LOG_ERROR("HTTP page retrivial failed while reading, OS_Tls_read returned error code %d, bytes read %zu",
+        case OS_ERROR_CONNECTION_CLOSED:
+            Debug_LOG_WARNING("connection reset by peer");
+            read = 0;
+            break;
+        case OS_SUCCESS:
+            needle = &needle[read];
+            read = sizeof(buffer) - (needle - buffer);
+            break;
+        default:
+            Debug_LOG_ERROR("HTTP page retrivial failed while reading, "
+                            "OS_Tls_read returned error code %d, bytes read %zu",
                             err, (size_t) (needle - buffer));
             goto err1;
-        }
-        else
-        {
-            Debug_ASSERT(read <= wantedToRead);
 
-            if (0 == read)
-            {
-                Debug_LOG_WARNING("connection reset by peer");
-            }
-            else
-            {
-                needle = &needle[read];
-                read = sizeof(buffer) - (needle - buffer);
-            }
         }
     }
     // before to print it we make sure it is correctly terminated anyway
     buffer[sizeof(buffer) - 1] = 0;
     Debug_LOG_INFO("Got HTTP Page:\n%s", buffer);
- err1:
- {
-    OS_Error_t err = OS_Tls_free(hTls);
-    if (OS_SUCCESS != err)
+
+err1:
     {
-        Debug_LOG_ERROR("OS_Tls_free() failed with error code %d", err);
+        OS_Error_t err = OS_Tls_free(hTls);
+        if (OS_SUCCESS != err)
+        {
+            Debug_LOG_ERROR("OS_Tls_free() failed with error code %d", err);
+        }
     }
- }
- err0:
+err0:
     return (OS_SUCCESS == err);
 }
 
@@ -197,13 +197,12 @@ demoAsLibrary(void)
             },
             .flags = OS_Tls_FLAG_NONE,
             .crypto = {
-                .policy = NULL,
-                .caCert = TLS_HOST_CERT,
-                .cipherSuites = {
+                .policy     = NULL,
+                .caCerts    = TLS_HOST_CERT,
+                .cipherSuites =
+                OS_Tls_CIPHERSUITE_FLAGS(
                     OS_Tls_CIPHERSUITE_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-                    OS_Tls_CIPHERSUITE_DHE_RSA_WITH_AES_128_GCM_SHA256
-                },
-                .cipherSuitesLen = 2
+                    OS_Tls_CIPHERSUITE_DHE_RSA_WITH_AES_128_GCM_SHA256)
             }
         }
     };
@@ -231,29 +230,29 @@ demoAsLibrary(void)
         goto err2;
     }
 err2:
-{
-    OS_Error_t err = closeSocket(&socket);
-    if (OS_SUCCESS != err)
     {
-        Debug_LOG_ERROR("closeSocket() failed with error code %d", err);
+        OS_Error_t err = closeSocket(&socket);
+        if (OS_SUCCESS != err)
+        {
+            Debug_LOG_ERROR("closeSocket() failed with error code %d", err);
+        }
+        else
+        {
+            Debug_LOG_INFO("Socket successfully closed");
+        }
     }
-    else
-    {
-        Debug_LOG_INFO("Socket successfully closed");
-    }
-}
 err1:
-{
-    OS_Error_t err = OS_Crypto_free(tlsConfig.library.crypto.handle);
-    if (OS_SUCCESS != err)
     {
-        Debug_LOG_ERROR("OS_Crypto_free() failed with error code %d", err);
+        OS_Error_t err = OS_Crypto_free(tlsConfig.library.crypto.handle);
+        if (OS_SUCCESS != err)
+        {
+            Debug_LOG_ERROR("OS_Crypto_free() failed with error code %d", err);
+        }
+        else
+        {
+            Debug_LOG_INFO("Crypto Library for TLS Library successfully freed");
+        }
     }
-    else
-    {
-        Debug_LOG_INFO("Crypto Library for TLS Library successfully freed");
-    }
-}
 err0:
     return (OS_SUCCESS == err);
 }
@@ -261,57 +260,42 @@ err0:
 OS_Error_t
 demoAsComponent(void)
 {
-    OS_Tls_Config_t tlsConfig =
+    static const if_TlsServer_t tlsServer =
+        IF_TLSSERVER_ASSIGN(
+            tlsServer_rpc);
+    static const OS_Tls_Config_t tlsConfig =
     {
         .mode = OS_Tls_MODE_CLIENT,
-        .dataport = OS_DATAPORT_ASSIGN(tlsClientDataport)
+        .rpc = IF_OS_TLS_ASSIGN(
+            tlsServer_rpc,
+            tlsServer_port)
     };
 
-    OS_Error_t err = TlsRpcServer_init();
+    OS_Error_t err = TlsServer_connect(&tlsServer, TLS_HOST_IP, TLS_HOST_PORT);
     if (OS_SUCCESS != err)
     {
-        Debug_LOG_ERROR("TlsRpcServer_init() failed with error code %d", err);
+        Debug_LOG_ERROR("TlsServer_connect() failed with error code %d", err);
         goto err0;
-    }
-    Debug_LOG_INFO("TLS RPC Server successfully initialized");
-
-    err = TlsRpcServer_connectSocket();
-    if (OS_SUCCESS != err)
-    {
-        Debug_LOG_ERROR("TlsRpcServer_connectSocket() failed with error code %d", err);
-        goto err1;
     }
     Debug_LOG_INFO("TLS Socket successfully connected");
 
     if (!readAndPrintWebPage(&tlsConfig))
     {
         Debug_LOG_ERROR("readAndPrintWebPage() failed");
-        goto err2;
+        goto err1;
     }
- err2:
- {
-    OS_Error_t err = TlsRpcServer_closeSocket();
-    if (OS_SUCCESS != err)
+err1:
     {
-        Debug_LOG_ERROR("TlsRpcServer_closeSocket() failed with error code %d", err);
+        OS_Error_t err = TlsServer_disconnect(&tlsServer);
+        if (OS_SUCCESS != err)
+        {
+            Debug_LOG_ERROR("TlsServer_disconnect() failed with error code %d", err);
+        }
+        else
+        {
+            Debug_LOG_INFO("TLS Socket successfully closed");
+        }
     }
-    else
-    {
-        Debug_LOG_INFO("TLS Socket successfully closed");
-    }
- }
- err1:
- {
-    OS_Error_t err = TlsRpcServer_free();
-    if (OS_SUCCESS != err)
-    {
-        Debug_LOG_ERROR("TlsRpcServer_free() failed with error code %d", err);
-    }
-    else
-    {
-        Debug_LOG_INFO("TLS RPC Server successfully freed");
-    }
- }
 err0:
     return (OS_SUCCESS == err);
 }

@@ -9,7 +9,7 @@ import <if_OS_Nic.camkes>;
 import <if_OS_Socket.camkes>;
 import <if_OS_Timer.camkes>;
 
-#include "NIC_ChanMux/NIC_ChanMux.camkes"
+#include "config/SystemConfig.h"
 
 #define DECLARE_BODY()\
     control;\
@@ -35,6 +35,7 @@ import <if_OS_Timer.camkes>;
    /*-------------------------------------------------*/\
    /* interface TimeServer */\
     uses        if_OS_Timer           timeServer_rpc;\
+    consumes    TimerReady            timeServer_notify;\
 \
     /*-------------------------------------------------*/\
     /* interface Ethernet NIC driver */\

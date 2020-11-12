@@ -7,8 +7,7 @@
 
 import <if_OS_Socket.camkes>;
 import <if_OS_Tls.camkes>;
-
-import "../TlsRpcServer/TlsRpcServer.camkes";
+import <TlsServer/camkes/if_TlsServer.camkes>;
 
 component demo_OS_Tls {
     control;
@@ -19,9 +18,8 @@ component demo_OS_Tls {
     consumes    ServiceReady                event_network_stack_init_done;
 
     // TLS
-    uses        TlsRpcServerInf             TlsRpcServer;
-    uses        if_OS_Tls                   tls_rpc;
-    dataport    Buf                         tlsClientDataport;
+    uses        if_TlsServer                tlsServer_rpc;
+    dataport    Buf                         tlsServer_port;
 
     //-------------------------------------------------
     // EntropySource
