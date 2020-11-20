@@ -112,6 +112,7 @@ bool
 readAndPrintWebPage(
     const OS_Tls_Config_t* config)
 {
+    bool retval = false;
     OS_Tls_Handle_t hTls;
     const char request[] =
         "GET / HTTP/1.0\r\nHost: www.example.org\r\nConnection: close\r\n\r\n";
@@ -120,7 +121,7 @@ readAndPrintWebPage(
     if (OS_SUCCESS != err)
     {
         Debug_LOG_ERROR("OS_Tls_init() failed with error code %d", err);
-        goto err0;
+        return false;
     }
     Debug_LOG_INFO("TLS Library successfully initialized");
 
@@ -128,7 +129,7 @@ readAndPrintWebPage(
     if (OS_SUCCESS != err)
     {
         Debug_LOG_ERROR("OS_Tls_handshake() failed with error code %d", err);
-        goto err1;
+        goto err0;
     }
     Debug_LOG_INFO("TLS handshake succeeded");
 
@@ -137,7 +138,7 @@ readAndPrintWebPage(
     if (OS_SUCCESS != err)
     {
         Debug_LOG_ERROR("OS_Tls_write() failed with error code %d", err);
-        goto err1;
+        goto err0;
     }
     Debug_LOG_INFO("HTTP request successfully sent");
 
@@ -162,24 +163,22 @@ readAndPrintWebPage(
             Debug_LOG_ERROR("HTTP page retrivial failed while reading, "
                             "OS_Tls_read returned error code %d, bytes read %zu",
                             err, (size_t) (needle - buffer));
-            goto err1;
+            goto err0;
 
         }
     }
     // before to print it we make sure it is correctly terminated anyway
     buffer[sizeof(buffer) - 1] = 0;
     Debug_LOG_INFO("Got HTTP Page:\n%s", buffer);
+    retval = true;
 
-err1:
-    {
-        OS_Error_t err = OS_Tls_free(hTls);
-        if (OS_SUCCESS != err)
-        {
-            Debug_LOG_ERROR("OS_Tls_free() failed with error code %d", err);
-        }
-    }
 err0:
-    return (OS_SUCCESS == err);
+    err = OS_Tls_free(hTls);
+    if (OS_SUCCESS != err)
+    {
+        Debug_LOG_ERROR("OS_Tls_free() failed with error code %d", err);
+    }
+    return retval;
 }
 
 bool
