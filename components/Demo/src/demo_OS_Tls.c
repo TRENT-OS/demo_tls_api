@@ -160,7 +160,7 @@ readAndPrintWebPage(
             read = sizeof(buffer) - (needle - buffer);
             break;
         default:
-            Debug_LOG_ERROR("HTTP page retrivial failed while reading, "
+            Debug_LOG_ERROR("HTTP page retrieval failed while reading, "
                             "OS_Tls_read returned error code %d, bytes read %zu",
                             err, (size_t) (needle - buffer));
             goto err0;
