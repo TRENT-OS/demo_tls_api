@@ -98,8 +98,8 @@ static const ChanMux_ChannelCtx_t channelCtx[] =
         nwDriver_1_ctrl_portWrite,
         nwDriver_1_data_portRead,
         nwDriver_1_data_portWrite,
-        nwDriver_1_ctrl_DataAvailable_emit,
-        nwDriver_1_data_DataAvailable_emit),
+        nwDriver_1_ctrl_eventHasData_emit,
+        nwDriver_1_data_eventHasData_emit),
 
     CHANNELS_CTX_NIC_CTRL_DATA(
         CHANMUX_CHANNEL_NIC_2_CTRL,
@@ -109,8 +109,8 @@ static const ChanMux_ChannelCtx_t channelCtx[] =
         nwDriver_2_ctrl_portWrite,
         nwDriver_2_data_portRead,
         nwDriver_2_data_portWrite,
-        nwDriver_2_ctrl_DataAvailable_emit,
-        nwDriver_2_data_DataAvailable_emit),
+        nwDriver_2_ctrl_eventHasData_emit,
+        nwDriver_2_data_eventHasData_emit),
 };
 
 

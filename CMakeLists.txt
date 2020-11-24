@@ -33,14 +33,14 @@ DeclareCAmkESComponent(demo_OS_Tls
         TlsServer_client
 )
 
-DeclareCAmkESComponent_TlsServer(
+TlsServer_DeclareCAmkESComponent(
     TlsServer
     LIBS
         os_crypto
         os_network_api
 )
 
-DeclareCAmkESComponent_NIC_ChanMux(
+NIC_ChanMux_DeclareCAmkESComponent(
     NwDriver_1
     CHANMUX_CHANNEL_NIC_1_CTRL
     CHANMUX_CHANNEL_NIC_1_DATA
@@ -84,14 +84,14 @@ DeclareCAmkESComponent(NwStack_2
         TimeServer_client
 )
 
-DeclareCAmkESComponent_NIC_ChanMux(
+NIC_ChanMux_DeclareCAmkESComponent(
     NwDriver_2
     CHANMUX_CHANNEL_NIC_2_CTRL
     CHANMUX_CHANNEL_NIC_2_DATA
 )
 
-DeclareCAmkESComponents_ChanMux_UART(
-    ChanMux
+ChanMux_UART_DeclareCAmkESComponents(
+    ChanMux_UART
     components/ChanMux/src/ChanMux_config.c
     system_config
 )
@@ -109,11 +109,11 @@ DeclareCAmkESComponent(
         TimeServer_client
 )
 
-DeclareCAmkESComponent_TimeServer(
+TimeServer_DeclareCAmkESComponent(
     TimeServer
 )
 
-DeclareCAmkESComponent_EntropySource(
+EntropySource_DeclareCAmkESComponent(
     EntropySource
 )
 

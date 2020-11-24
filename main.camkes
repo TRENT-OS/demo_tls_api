@@ -5,37 +5,44 @@ import <if_OS_Entropy.camkes>;
 #include "config/SystemConfig.h"
 #include "config/DemoConfig.h"
 
-#include "ChanMux/ChanMux.camkes"
-ChanMux_DEFINE_COMPONENT(ChanMux,
-        nwDriver_1, data,
-        nwDriver_1, ctrl,
-        nwDriver_2, data,
-        nwDriver_2, ctrl)
+#include "ChanMux/ChanMux_UART.camkes"
+ChanMux_UART_COMPONENT_DEFINE(
+    ChanMux_UART,
+    nwDriver_1, ctrl,
+    nwDriver_1, data,
+    nwDriver_2, ctrl,
+    nwDriver_2, data
+)
 
 #include "NIC_ChanMux/NIC_ChanMux.camkes"
-DECLARE_COMPONENT_NIC_ChanMux(NwDriver_1, NIC_DRIVER_RINGBUFFER_SIZE)
-DECLARE_COMPONENT_NIC_ChanMux(NwDriver_2, NIC_DRIVER_RINGBUFFER_SIZE)
-
-#include "TimeServer/camkes/TimeServer.camkes"
-DECLARE_COMPONENT_TimeServer(TimeServer)
+NIC_ChanMux_COMPONENT_DEFINE(NwDriver_1, NIC_DRIVER_RINGBUFFER_SIZE)
+NIC_ChanMux_COMPONENT_DEFINE(NwDriver_2, NIC_DRIVER_RINGBUFFER_SIZE)
 
 #include "EntropySource/camkes/EntropySource.camkes"
-DECLARE_COMPONENT_EntropySource(EntropySource)
+EntropySource_COMPONENT_DEFINE(EntropySource)
 
-import "components/NwStack/network_stack.camkes";
-import "components/Ticker/Ticker.camkes";
+#include "TimeServer/camkes/TimeServer.camkes"
+TimeServer_COMPONENT_DEFINE(TimeServer)
 
 #include "TlsServer/camkes/TlsServer.camkes"
-DECLARE_COMPONENT_TlsServer(TlsServer)
+TlsServer_COMPONENT_DEFINE(TlsServer)
 
 import "components/Demo/demo_OS_Tls.camkes";
+import "components/NwStack/network_stack.camkes";
+import "components/Ticker/Ticker.camkes";
 
 assembly {
     composition {
         //----------------------------------------------------------------------
-        // MUX
+        // ChanMux + UART_0 (on Zynq7000)
         //----------------------------------------------------------------------
-        ChanMux_DECLARE_AND_CONNECT_INSTANCE_TO_UART(ChanMux, chanMux)
+        component ChanMux_UART chanMux_UART;
+        component UART_0 uart;
+
+        ChanMux_UART_INSTANCE_CONNECT(
+            chanMux_UART,
+            uart
+        )
 
         //----------------------------------------------------------------------
         // Ticker
@@ -48,8 +55,9 @@ assembly {
         //----------------------------------------------------------------------
         // TimeServer
         //----------------------------------------------------------------------
-        DECLARE_AND_CONNECT_INSTANCE_TimeServer(
-            TimeServer,
+        component TimeServer timeServer;
+
+        TimeServer_INSTANCE_CONNECT_CLIENTS(
             timeServer,
             ticker_1.timeServer_rpc, ticker_1.timeServer_notify,
             ticker_2.timeServer_rpc, ticker_2.timeServer_notify,
@@ -61,9 +69,10 @@ assembly {
         //----------------------------------------------------------------------
         component  NwDriver_1 nwDriver_1;
 
-        ChanMux_INSTANCE_CONNECT_INTERFACE(chanMux, nwDriver_1)
-        ChanMux_INSTANCE_CONNECT_CHANNEL(chanMux, nwDriver_1, data)
-        ChanMux_INSTANCE_CONNECT_CHANNEL(chanMux, nwDriver_1, ctrl)
+        ChanMux_UART_INSTANCE_CONNECT_CLIENT(
+            chanMux_UART,
+            nwDriver_1, data, ctrl
+        )
 
         //----------------------------------------------------------------------
         // Network Stack #1
@@ -89,8 +98,9 @@ assembly {
         connection seL4RPCCall      NwApp_nwStack        (from demo.network_stack_rpc,         to nwStack_1.network_stack_rpc);
         connection seL4SharedData   NwApp_dataConnection (from demo.NwAppDataPort,             to nwStack_1.port_app_io);
 
-        DECLARE_AND_CONNECT_INSTANCE_EntropySource(
-            EntropySource,
+        component EntropySource     entropySource_demo;
+
+        EntropySource_INSTANCE_CONNECT_CLIENT(
             entropySource_demo,
             demo.entropy_rpc,
             demo.entropy_port)
@@ -100,9 +110,10 @@ assembly {
         //----------------------------------------------------------------------
         component  NwDriver_2 nwDriver_2;
 
-        ChanMux_INSTANCE_CONNECT_INTERFACE(chanMux, nwDriver_2)
-        ChanMux_INSTANCE_CONNECT_CHANNEL(chanMux, nwDriver_2, data)
-        ChanMux_INSTANCE_CONNECT_CHANNEL(chanMux, nwDriver_2, ctrl)
+        ChanMux_UART_INSTANCE_CONNECT_CLIENT(
+            chanMux_UART,
+            nwDriver_2, data, ctrl
+        )
 
         //----------------------------------------------------------------------
         // Network Stack #2
@@ -122,39 +133,41 @@ assembly {
         //----------------------------------------------------------------------
         // Network Stack App #2, TlsServer
         //----------------------------------------------------------------------
-        DECLARE_AND_CONNECT_INSTANCE_EntropySource(
-            EntropySource,
+        component EntropySource     entropySource_tlsServer;
+        component TlsServer         tlsServer;
+
+        EntropySource_INSTANCE_CONNECT_CLIENT(
             entropySource_tlsServer,
             tlsServer.entropy_rpc,
             tlsServer.entropy_port)
-
-        DECLARE_AND_CONNECT_INSTANCE_TlsServer(
-            TlsServer,
+        TlsServer_INSTANCE_CONNECT(
             tlsServer,
             entropySource_tlsServer.entropy_rpc,
             entropySource_tlsServer.entropy_port,
             nwStack_2.network_stack_rpc,
             nwStack_2.port_app_io,
-            nwStack_2.event_network_init_done,
+            nwStack_2.event_network_init_done)
+        TlsServer_INSTANCE_CONNECT_CLIENT(
+            tlsServer,
             demo.tlsServer_rpc,
             demo.tlsServer_port)
     }
 
     configuration {
-        // assign endpoint badges for n:1 RPC interface of ChanMUX. The generic
-        // naming scheme is <component>.<interface>_attributes = <badge ID>
-        ChanMux_ASSIGN_CLIENT_BADGE(chanMux, nwDriver_1, CHANMUX_ID_NIC_1)
-        ChanMux_ASSIGN_CLIENT_BADGE(chanMux, nwDriver_2, CHANMUX_ID_NIC_2)
-        ASSIGN_CLIENT_BADGE_TlsServer(
-            demo, tlsServer_rpc, TLSSERVER_CLIENT_ID)
-        ASSIGN_CLIENT_BADGE_TimeServer(
-            ticker_1, timeServer_rpc, TIMESERVER_TK_1_ID)
-        ASSIGN_CLIENT_BADGE_TimeServer(
-            ticker_2, timeServer_rpc, TIMESERVER_TK_2_ID)
-        ASSIGN_CLIENT_BADGE_TimeServer(
-            nwStack_1, timeServer_rpc, TIMESERVER_NS_1_ID)
-        ASSIGN_CLIENT_BADGE_TimeServer(
-            nwStack_2, timeServer_rpc, TIMESERVER_NS_2_ID)
-        CONFIGURE_INSTANCE_TlsServer(tlsServer, TLS_HOST_CERT)
+        ChanMux_UART_CLIENT_ASSIGN_BADGES(
+            nwDriver_1.chanMux_Rpc,
+            nwDriver_2.chanMux_Rpc
+        )
+        TlsServer_CLIENT_ASSIGN_BADGES(
+            demo.tlsServer_rpc
+        )
+        TimeServer_CLIENT_ASSIGN_BADGES(
+            ticker_1.timeServer_rpc,
+            ticker_2.timeServer_rpc,
+            nwStack_1.timeServer_rpc,
+            nwStack_2.timeServer_rpc
+        )
+        TlsServer_INSTANCE_CONFIGURE(
+            tlsServer, TLS_HOST_CERT)
     }
 }
