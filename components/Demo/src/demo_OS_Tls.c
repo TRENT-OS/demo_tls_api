@@ -184,6 +184,7 @@ err0:
 bool
 demoAsLibrary(void)
 {
+    bool retval = false;
     OS_NetworkSocket_Handle_t socket;
     OS_Tls_Config_t tlsConfig =
     {
@@ -228,6 +229,8 @@ demoAsLibrary(void)
         Debug_LOG_ERROR("readAndPrintWebPage() failed");
         goto err2;
     }
+    retval = true;
+
 err2:
     {
         OS_Error_t err = closeSocket(&socket);
@@ -253,12 +256,14 @@ err1:
         }
     }
 err0:
-    return (OS_SUCCESS == err);
+    return retval;
 }
 
 OS_Error_t
 demoAsComponent(void)
 {
+    bool retval = false;
+
     static const if_TlsServer_t tlsServer =
         IF_TLSSERVER_ASSIGN(
             tlsServer_rpc);
@@ -283,6 +288,8 @@ demoAsComponent(void)
         Debug_LOG_ERROR("readAndPrintWebPage() failed");
         goto err1;
     }
+    retval = true;
+
 err1:
     {
         OS_Error_t err = TlsServer_disconnect(&tlsServer);
@@ -296,7 +303,7 @@ err1:
         }
     }
 err0:
-    return (OS_SUCCESS == err);
+    return retval;
 }
 
 // Public functions ------------------------------------------------------------
