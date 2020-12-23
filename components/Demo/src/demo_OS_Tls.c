@@ -13,7 +13,7 @@
 #include "OS_Network.h"
 #include "OS_NetworkStackClient.h"
 
-#include "LibDebug/Debug.h"
+#include "lib_debug/Debug.h"
 
 #include <camkes.h>
 #include <string.h>
