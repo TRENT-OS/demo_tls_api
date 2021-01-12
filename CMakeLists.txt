@@ -53,7 +53,6 @@ DeclareCAmkESComponent(NwStack_1
         components/NwStack/src/network_stack.c
     C_FLAGS
         -Wall -Werror
-        -DOS_NWSTACK_AS_CLIENT
         -DCFG_ETH_ADDR=ETH_1_ADDR
         -DCFG_ETH_GATEWAY_ADDR=ETH_1_GATEWAY_ADDR
         -DCFG_ETH_SUBNET_MASK=ETH_1_SUBNET_MASK
@@ -72,7 +71,6 @@ DeclareCAmkESComponent(NwStack_2
         components/NwStack/src/network_stack.c
     C_FLAGS
         -Wall -Werror
-        -DOS_NWSTACK_AS_CLIENT
         -DCFG_ETH_ADDR=ETH_2_ADDR
         -DCFG_ETH_GATEWAY_ADDR=ETH_2_GATEWAY_ADDR
         -DCFG_ETH_SUBNET_MASK=ETH_2_SUBNET_MASK
