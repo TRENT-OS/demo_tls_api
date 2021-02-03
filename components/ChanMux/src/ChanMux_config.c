@@ -4,7 +4,7 @@
  *  Copyright (C) 2020, Hensoldt Cyber GmbH
  */
 
-#include "config/SystemConfig.h"
+#include "SystemConfig.h"
 #include "ChanMux/ChanMux.h"
 #include "ChanMuxNic.h"
 #include <camkes.h>
