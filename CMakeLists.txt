@@ -36,6 +36,7 @@ DeclareCAmkESComponent(demo_OS_Tls
 TlsServer_DeclareCAmkESComponent(
     TlsServer
     LIBS
+        system_config
         os_crypto
         os_network_api
 )
