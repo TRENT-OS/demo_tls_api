@@ -95,7 +95,6 @@ assembly {
         //----------------------------------------------------------------------
         component  demo_OS_Tls      demo;
 
-        connection seL4Notification NwAppInitDone        (from nwStack_1.event_network_init_done,  to demo.event_network_stack_init_done);
         connection seL4RPCCall      NwApp_nwStack        (from demo.network_stack_rpc,         to nwStack_1.network_stack_rpc);
         connection seL4SharedData   NwApp_dataConnection (from demo.NwAppDataPort,             to nwStack_1.port_app_io);
 
@@ -146,8 +145,7 @@ assembly {
             entropySource_tlsServer.entropy_rpc,
             entropySource_tlsServer.entropy_port,
             nwStack_2.network_stack_rpc,
-            nwStack_2.port_app_io,
-            nwStack_2.event_network_init_done)
+            nwStack_2.port_app_io)
         TlsServer_INSTANCE_CONNECT_CLIENT(
             tlsServer,
             demo.tlsServer_rpc,

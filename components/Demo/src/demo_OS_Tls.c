@@ -20,10 +20,6 @@
 
 #define MAX_NW_SIZE 256
 
-extern OS_Error_t
-OS_NetworkAPP_RT(
-    OS_Network_Context_t ctx);
-
 static OS_Crypto_Config_t cryptoCfg =
 {
     .mode = OS_Crypto_MODE_LIBRARY,
@@ -310,7 +306,6 @@ err0:
 int run(void)
 {
     initNetworkClientApi();
-    OS_NetworkAPP_RT(NULL);
 
     Debug_LOG_INFO("Running TLS API in 'library' mode");
     if (!demoAsLibrary())
