@@ -314,11 +314,13 @@ int run(void)
         return -1;
     }
     Debug_LOG_INFO("Demo TLS API in 'library' mode completed, now running TLS API in 'component' mode");
+
     if (!demoAsComponent())
     {
         Debug_LOG_ERROR("demoAsComponent() failed");
         return -1;
     }
     Debug_LOG_INFO("Demo completed successfully.");
+
     return 0;
 }
