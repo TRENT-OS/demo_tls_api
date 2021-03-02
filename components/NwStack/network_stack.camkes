@@ -11,20 +11,23 @@ import <if_OS_Timer.camkes>;
 
 #include "config/SystemConfig.h"
 
+#define DECLARE_SOCKET(N)\
+    emits       NwStack_WrEv            e_write_##N;\
+    consumes    NwStack_WrEv            c_write_##N;\
+\
+    emits       NwStack_RdEv            e_read_##N;\
+    consumes    NwStack_RdEv            c_read_##N;\
+\
+    emits       NwStack_ConnEv          e_conn_##N;\
+    consumes    NwStack_ConnEv          c_conn_##N;\
+\
+    dataport    Buf                     port_socket_##N
+
 #define DECLARE_BODY()\
     control;\
 \
     consumes    EventDataAvailable      event_tick_or_data;\
     emits       EventDataAvailable      event_internal;\
-\
-    emits       NwStack_WrEv            e_write;\
-    consumes    NwStack_WrEv            c_write;\
-\
-    emits       NwStack_RdEv            e_read;\
-    consumes    NwStack_RdEv            c_read;\
-\
-    emits       NwStack_ConnEv          e_conn;\
-    consumes    NwStack_ConnEv          c_conn;\
 \
     has         mutex                   allocatorMutex;\
     has         mutex                   nwstackMutex;\
@@ -45,13 +48,9 @@ import <if_OS_Timer.camkes>;
 \
     /*-------------------------------------------------*/\
     /* interface Application */\
-    provides    if_OS_Socket           network_stack_rpc;\
-    dataport    Buf                    port_app_io;
+    provides    if_OS_Socket           network_stack_rpc
 
-component NwStack_1 {
-    DECLARE_BODY()
-}
-
-component NwStack_2 {
-    DECLARE_BODY()
+component NwStack {
+    DECLARE_BODY();
+    DECLARE_SOCKET(1);
 }

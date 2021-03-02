@@ -47,20 +47,6 @@ resolveChannel(
             break;
         }
         break;
-    case CHANMUX_ID_NIC_2:
-        switch (chanNum_local)
-        {
-        //----------------------------------
-        case CHANMUX_CHANNEL_NIC_2_CTRL:
-            return CHANMUX_CHANNEL_NIC_2_CTRL;
-        //----------------------------------
-        case CHANMUX_CHANNEL_NIC_2_DATA:
-            return CHANMUX_CHANNEL_NIC_2_DATA;
-        //----------------------------------
-        default:
-            break;
-        }
-        break;
     //----------------------------------
     default:
         break;
@@ -83,7 +69,7 @@ static struct
 {
     ChanMux_Channel_t ctrl;
     ChanMux_Channel_t data;
-} nic_channel[2];
+} nic_channel[1];
 
 
 //------------------------------------------------------------------------------
@@ -94,23 +80,12 @@ static const ChanMux_ChannelCtx_t channelCtx[] =
         CHANMUX_CHANNEL_NIC_1_CTRL,
         CHANMUX_CHANNEL_NIC_1_DATA,
         0,
-        nwDriver_1_ctrl_portRead,
-        nwDriver_1_ctrl_portWrite,
-        nwDriver_1_data_portRead,
-        nwDriver_1_data_portWrite,
-        nwDriver_1_ctrl_eventHasData_emit,
-        nwDriver_1_data_eventHasData_emit),
-
-    CHANNELS_CTX_NIC_CTRL_DATA(
-        CHANMUX_CHANNEL_NIC_2_CTRL,
-        CHANMUX_CHANNEL_NIC_2_DATA,
-        1,
-        nwDriver_2_ctrl_portRead,
-        nwDriver_2_ctrl_portWrite,
-        nwDriver_2_data_portRead,
-        nwDriver_2_data_portWrite,
-        nwDriver_2_ctrl_eventHasData_emit,
-        nwDriver_2_data_eventHasData_emit),
+        nwDriver_ctrl_portRead,
+        nwDriver_ctrl_portWrite,
+        nwDriver_data_portRead,
+        nwDriver_data_portWrite,
+        nwDriver_ctrl_eventHasData_emit,
+        nwDriver_data_eventHasData_emit)
 };
 
 

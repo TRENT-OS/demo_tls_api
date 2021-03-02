@@ -54,18 +54,20 @@ void post_init(void)
     Debug_LOG_INFO("[NwStack '%s'] starting", get_instance_name());
 
     static OS_NetworkStack_SocketResources_t
-    socks = {
-                .notify_write       = e_write_emit,
-                .wait_write         = c_write_wait,
+    socks[1] = {
+        {
+                .notify_write       = e_write_1_emit,
+                .wait_write         = c_write_1_wait,
 
-                .notify_read        = e_read_emit,
-                .wait_read          = c_read_wait,
+                .notify_read        = e_read_1_emit,
+                .wait_read          = c_read_1_wait,
 
-                .notify_connection  = e_conn_emit,
-                .wait_connection    = c_conn_wait,
+                .notify_connection  = e_conn_1_emit,
+                .wait_connection    = c_conn_1_wait,
 
-                .buf = OS_DATAPORT_ASSIGN(port_app_io)
-            };
+                .buf = OS_DATAPORT_ASSIGN(port_socket_1)
+        }
+    };
 
     static const OS_NetworkStack_CamkesConfig_t camkes_config =
     {
@@ -81,8 +83,8 @@ void post_init(void)
             .stackTS_lock       = stackThreadSafeMutex_lock,
             .stackTS_unlock     = stackThreadSafeMutex_unlock,
 
-            .number_of_sockets  = 1,
-            .sockets = &socks
+            .number_of_sockets = ARRAY_SIZE(socks),
+            .sockets = socks
         },
 
         .drv_nic =

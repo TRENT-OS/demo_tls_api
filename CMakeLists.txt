@@ -41,12 +41,12 @@ TlsServer_DeclareCAmkESComponent(
 )
 
 NIC_ChanMux_DeclareCAmkESComponent(
-    NwDriver_1
+    NwDriver
     CHANMUX_CHANNEL_NIC_1_CTRL
     CHANMUX_CHANNEL_NIC_1_DATA
 )
 
-DeclareCAmkESComponent(NwStack_1
+DeclareCAmkESComponent(NwStack
     INCLUDES
         config
     SOURCES
@@ -62,30 +62,6 @@ DeclareCAmkESComponent(NwStack_1
         lib_debug
         os_network_lib
         TimeServer_client
-)
-
-DeclareCAmkESComponent(NwStack_2
-    INCLUDES
-        config
-    SOURCES
-        components/NwStack/src/network_stack.c
-    C_FLAGS
-        -Wall -Werror
-        -DCFG_ETH_ADDR=ETH_2_ADDR
-        -DCFG_ETH_GATEWAY_ADDR=ETH_2_GATEWAY_ADDR
-        -DCFG_ETH_SUBNET_MASK=ETH_2_SUBNET_MASK
-    LIBS
-        system_config
-        os_core_api
-        lib_debug
-        os_network_lib
-        TimeServer_client
-)
-
-NIC_ChanMux_DeclareCAmkESComponent(
-    NwDriver_2
-    CHANMUX_CHANNEL_NIC_2_CTRL
-    CHANMUX_CHANNEL_NIC_2_DATA
 )
 
 ChanMux_UART_DeclareCAmkESComponents(
