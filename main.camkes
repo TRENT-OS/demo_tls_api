@@ -68,16 +68,6 @@ assembly {
             nwDriver, data, ctrl
         )
 
-        //----------------------------------------------------------------------
-        // Network Stack
-        //----------------------------------------------------------------------
-        component  NwStack  nwStack;
-
-        connection seL4NotificationNative NwStackdataAvailTick      (from nwStack.event_internal,       to nwStack.event_tick_or_data);
-        // Socket 1 events
-        connection seL4Notification       NwStackEventsRead_1       (from nwStack.e_write_1,            to nwStack.c_write_1);
-        connection seL4Notification       NwStackEventsWrite_1      (from nwStack.e_read_1,             to nwStack.c_read_1);
-        connection seL4Notification       NwStackEventsConnect_1    (from nwStack.e_conn_1,             to nwStack.c_conn_1);
         // NwDriver connection
         connection seL4NotificationNative NwStackdataAvailDriver           (from nwDriver.nic_event_hasData,  to nwStack.event_tick_or_data);
         connection seL4SharedData         NwDriver_NwStack_ReadConnection  (from nwDriver.nic_port_to,        to nwStack.port_nic_from);
