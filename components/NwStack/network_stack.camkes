@@ -11,7 +11,7 @@ import <if_OS_Timer.camkes>;
 
 #include "config/SystemConfig.h"
 
-#define DECLARE_SOCKET(N)\
+#define NwStack_DECLARE_SOCKET(N)\
     emits       NwStack_WrEv            e_write_##N;\
     consumes    NwStack_WrEv            c_write_##N;\
 \
@@ -23,7 +23,7 @@ import <if_OS_Timer.camkes>;
 \
     dataport    Buf                     port_socket_##N
 
-#define DECLARE_BODY()\
+#define NwStack_DECLARE_BODY()\
     control;\
 \
     consumes    EventDataAvailable      event_tick_or_data;\
@@ -50,19 +50,17 @@ import <if_OS_Timer.camkes>;
     /* interface Application */\
     provides    if_OS_Socket           network_stack_rpc
 
-component NwStack {
-    DECLARE_BODY();
-    DECLARE_SOCKET(1);
+#define NwStack_COMPONENT_DEFINE(_component_name_)\
+component _component_name_ {\
+    NwStack_DECLARE_BODY();\
+    NwStack_DECLARE_SOCKET(1);\
 }
 
-assembly {
-    composition {
-        component  NwStack  nwStack;
-
-        connection seL4NotificationNative NwStackdataAvailTick      (from nwStack.event_internal,   to nwStack.event_tick_or_data);
-        // Socket 1 internal events
-        connection seL4Notification       NwStackEventsWrite_1      (from nwStack.e_write_1,        to nwStack.c_write_1);
-        connection seL4Notification       NwStackEventsRead_1       (from nwStack.e_read_1,         to nwStack.c_read_1);
-        connection seL4Notification       NwStackEventsConnect_1    (from nwStack.e_conn_1,         to nwStack.c_conn_1);
-    }
-}
+#define NwStack_INSTANCE_DECLARE(_component_name_, _inst_)\
+    component  _component_name_  _inst_;\
+\
+    connection seL4NotificationNative NwStackdataAvailTick      (from _inst_.event_internal,   to _inst_.event_tick_or_data);\
+    /* Socket 1 internal events */\
+    connection seL4Notification       NwStackEventsWrite_1      (from _inst_.e_write_1,        to _inst_.c_write_1);\
+    connection seL4Notification       NwStackEventsRead_1       (from _inst_.e_read_1,         to _inst_.c_read_1);\
+    connection seL4Notification       NwStackEventsConnect_1    (from _inst_.e_conn_1,         to _inst_.c_conn_1);
