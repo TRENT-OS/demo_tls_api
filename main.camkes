@@ -1,4 +1,9 @@
-/*  Copyright (C) 2020, Hensoldt Cyber GmbH */
+/*
+ * Demo TLS API
+ *
+ * Copyright (C) 2020, HENSOLDT Cyber GmbH
+ */
+
 import <std_connector.camkes>;
 
 import <if_OS_Entropy.camkes>;

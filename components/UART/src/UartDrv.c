@@ -1,5 +1,7 @@
-/**
- * Copyright (C) 2019, Hensoldt Cyber GmbH
+/*
+ * UART API implementation
+ *
+ * Copyright (C) 2019, HENSOLDT Cyber GmbH
  */
 
 #include "uart.h"

@@ -1,20 +1,18 @@
-/**
- * Copyright (C) 2019, Hensoldt Cyber GmbH
- */
-
 /*
-    Note: this module represents functionality of the UART contained on the zynq7000 platform.
-    It has been created to provide a communication channel between a "host" process in Linux
-    and the seL4 in case the zynq7000 is simulated by QEMU.
-
-    It has been found that this specific UART is not completely implemented in QEMU: especially
-    hardware flow control is missing. Because of this only polling access has been implemented
-    so far.
-
-    Up to now this code has only been tested with QEMU. In theory it could also be used in
-    case the seL4 is running on a real zynq7000 board. (In which case we would want to use
-    and implement hardware flow control.)
+ * UART driver for the QEMU zynq7000 platform
+ *
+ * Copyright (C) 2019, HENSOLDT Cyber GmbH
+ *
+ *
+ * This module implements a UART driver for the QEMU zynq7000 platform. It has
+ * been created to provide a communication channel between a "host" process in
+ * Linux and the seL4 system running in QEMU. The UART is not completely
+ * implemented in QEMU, hardware flow control is missing and thus this polling
+ * access has been implemented. Up to now this code has only been tested with
+ * QEMU. In theory it could also be used on real hardware, but there using flow
+ * control might be the desired way to got forward.
  */
+
 #include "uart.h"
 
 #include <stdio.h>

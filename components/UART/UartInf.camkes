@@ -1,9 +1,9 @@
 /*
- *  UART  Interface
+ * UART  Interface
  *
- *  Copyright (C) 2019, Hensoldt Cyber GmbH
- *
+ * Copyright (C) 2019, HENSOLDT Cyber GmbH
  */
+
 procedure UartInf {
     /// writes synchronously len bytes from the input dataport to the uart
     void            write      (size_t len);

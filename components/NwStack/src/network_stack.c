@@ -1,7 +1,7 @@
 /*
- *  Network Stack CAmkES wrapper
+ * Network Stack CAmkES wrapper
  *
- *  Copyright (C) 2019, Hensoldt Cyber GmbH
+ * Copyright (C) 2019, HENSOLDT Cyber GmbH
  *
  */
 #include "SystemConfig.h"
