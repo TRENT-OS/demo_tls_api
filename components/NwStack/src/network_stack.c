@@ -1,22 +1,20 @@
 /*
  * Network Stack CAmkES wrapper
  *
- * Copyright (C) 2019, HENSOLDT Cyber GmbH
- *
+ * Copyright (C) 2019-2021, HENSOLDT Cyber GmbH
  */
+
 #include "SystemConfig.h"
 
 #include "lib_debug/Debug.h"
-
 #include "OS_Error.h"
-#include "OS_NetworkStack.h"
 #include "OS_Dataport.h"
-
+#include "OS_NetworkStack.h"
 #include "TimeServer.h"
-
 #include <camkes.h>
 
-static OS_NetworkStack_AddressConfig_t config =
+
+static const OS_NetworkStack_AddressConfig_t config =
 {
     .dev_addr      = CFG_ETH_ADDR,
     .gateway_addr  = CFG_ETH_GATEWAY_ADDR,
@@ -53,19 +51,18 @@ void post_init(void)
 {
     Debug_LOG_INFO("[NwStack '%s'] starting", get_instance_name());
 
-    static OS_NetworkStack_SocketResources_t
-    socks[1] = {
+    static OS_NetworkStack_SocketResources_t socks[1] = {
         {
-                .notify_write       = e_write_1_emit,
-                .wait_write         = c_write_1_wait,
+            .notify_write       = e_write_1_emit,
+            .wait_write         = c_write_1_wait,
 
-                .notify_read        = e_read_1_emit,
-                .wait_read          = c_read_1_wait,
+            .notify_read        = e_read_1_emit,
+            .wait_read          = c_read_1_wait,
 
-                .notify_connection  = e_conn_1_emit,
-                .wait_connection    = c_conn_1_wait,
+            .notify_connection  = e_conn_1_emit,
+            .wait_connection    = c_conn_1_wait,
 
-                .buf = OS_DATAPORT_ASSIGN(port_socket_1)
+            .buf = OS_DATAPORT_ASSIGN(port_socket_1)
         }
     };
 
@@ -83,8 +80,8 @@ void post_init(void)
             .stackTS_lock       = stackThreadSafeMutex_lock,
             .stackTS_unlock     = stackThreadSafeMutex_unlock,
 
-            .number_of_sockets = ARRAY_SIZE(socks),
-            .sockets = socks
+            .number_of_sockets  = ARRAY_SIZE(socks),
+            .sockets            = socks
         },
 
         .drv_nic =
@@ -100,9 +97,9 @@ void post_init(void)
 
             .rpc =
             {
-                .dev_read       = nic_driver_rx_data,
-                .dev_write      = nic_driver_tx_data,
-                .get_mac        = nic_driver_get_mac_address,
+                .dev_read       = nic_rpc_rx_data,
+                .dev_write      = nic_rpc_tx_data,
+                .get_mac        = nic_rpc_get_mac_address,
             }
         },
     };
@@ -114,12 +111,13 @@ void post_init(void)
                         get_instance_name(), ret);
         return;
     }
+
     initSuccessfullyCompleted = true;
 }
 
 
 //------------------------------------------------------------------------------
-int run()
+int run(void)
 {
     if (!initSuccessfullyCompleted)
     {
@@ -133,9 +131,8 @@ int run()
     {
         Debug_LOG_FATAL("[NwStack '%s'] OS_NetworkStack_run() failed, error %d",
                         get_instance_name(), ret);
-        return ret;
+        return -1;
     }
-
 
     // actually, OS_NetworkStack_run() is not supposed to return with
     // OS_SUCCESS. We have to assume this is a graceful shutdown for some
