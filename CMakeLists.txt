@@ -14,6 +14,8 @@ os_set_config_file(
 #-------------------------------------------------------------------------------
 project(demo_tls_api C)
 
+include("plat/${PLATFORM}/plat_nic.cmake")
+
 DeclareCAmkESComponent(demo_OS_Tls
     INCLUDES
         config
@@ -39,12 +41,6 @@ TlsServer_DeclareCAmkESComponent(
         os_network_api
 )
 
-NIC_ChanMux_DeclareCAmkESComponent(
-    NwDriver
-    CHANMUX_CHANNEL_NIC_1_CTRL
-    CHANMUX_CHANNEL_NIC_1_DATA
-)
-
 DeclareCAmkESComponent(NwStack
     INCLUDES
         config
@@ -61,12 +57,6 @@ DeclareCAmkESComponent(NwStack
         lib_debug
         os_network_lib
         TimeServer_client
-)
-
-ChanMux_UART_DeclareCAmkESComponents(
-    ChanMux_UART
-    components/ChanMux/src/ChanMux_config.c
-    system_config
 )
 
 DeclareCAmkESComponent(

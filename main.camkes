@@ -11,16 +11,6 @@ import <if_OS_Entropy.camkes>;
 #include "config/SystemConfig.h"
 #include "config/DemoConfig.h"
 
-#include "ChanMux/ChanMux_UART.camkes"
-ChanMux_UART_COMPONENT_DEFINE(
-    ChanMux_UART,
-    nwDriver, ctrl,
-    nwDriver, data
-)
-
-#include "NIC_ChanMux/NIC_ChanMux.camkes"
-NIC_ChanMux_COMPONENT_DEFINE(NwDriver, NIC_DRIVER_RINGBUFFER_SIZE)
-
 #include "EntropySource/camkes/EntropySource.camkes"
 EntropySource_COMPONENT_DEFINE(EntropySource)
 
@@ -40,40 +30,19 @@ NwStack_COMPONENT_DEFINE(
 import "components/Demo/demo_OS_Tls.camkes";
 import "components/Ticker/Ticker.camkes";
 
+#include "plat_nic.camkes"
+
 assembly {
     composition {
-        //----------------------------------------------------------------------
-        // ChanMux + UART_0 (on Zynq7000)
-        //----------------------------------------------------------------------
-        component ChanMux_UART chanMux_UART;
-        component UART_0 uart;
-        ChanMux_UART_INSTANCE_CONNECT(chanMux_UART, uart)
-
         //----------------------------------------------------------------------
         // Ticker
         //----------------------------------------------------------------------
         component  Ticker ticker;
 
         //----------------------------------------------------------------------
-        // TimeServer
-        //----------------------------------------------------------------------
-        component TimeServer timeServer;
-
-        TimeServer_INSTANCE_CONNECT_CLIENTS(
-            timeServer,
-            ticker.timeServer_rpc, ticker.timeServer_notify,
-            nwStack.timeServer_rpc, nwStack.timeServer_notify
-        )
-
-        //----------------------------------------------------------------------
         // Network Driver
         //----------------------------------------------------------------------
-        component NwDriver nwDriver;
-
-        ChanMux_UART_INSTANCE_CONNECT_CLIENT(
-            chanMux_UART,
-            nwDriver, data, ctrl
-        )
+        TLS_API_DEMO_NIC_INSTANCE(nwDriver)
 
         //----------------------------------------------------------------------
         // NwStack
@@ -86,18 +55,28 @@ assembly {
             nwDriver
         )
 
+        NwStack_INSTANCE_CONNECT_SOCKET(
+            nwStack,
+            1,
+            demo.networkStack_rpc,
+            demo.networkStack_port)
+
+        //----------------------------------------------------------------------
+        // TimeServer
+        //----------------------------------------------------------------------
+        component TimeServer timeServer;
+
+        TimeServer_INSTANCE_CONNECT_CLIENTS(
+            timeServer,
+            ticker.timeServer_rpc, ticker.timeServer_notify,
+            // platform specific components, macro will add a comma(s) if any
+            TLS_API_DEMO_NIC_CONNECTION_TIMESERVER(nwDriver)
+            nwStack.timeServer_rpc, nwStack.timeServer_notify)
+
         //----------------------------------------------------------------------
         // Network Stack App #1: TLS Demo
         //----------------------------------------------------------------------
         component demo_OS_Tls demo;
-
-        connection seL4RPCCall conn_rpc_demo_nwStack(
-            from demo.networkStack_rpc,
-            to   nwStack.networkStack_rpc);
-
-        connection seL4SharedData conn_port_demo_nwStack(
-            from demo.networkStack_port,
-            to   nwStack.socket_1_port);
 
         component EntropySource entropySource_demo;
 
@@ -129,17 +108,17 @@ assembly {
     }
 
     configuration {
-        ChanMux_UART_CLIENT_ASSIGN_BADGES(
-            nwDriver.chanMux_Rpc
-        )
         TlsServer_CLIENT_ASSIGN_BADGES(
             demo.tlsServer_rpc
         )
         TimeServer_CLIENT_ASSIGN_BADGES(
             ticker.timeServer_rpc,
+            // platform specific components, macro will add a comma(s) if any
+            TLS_API_DEMO_NIC_TIMESERVER_CLIENTS(nwDriver)
             nwStack.timeServer_rpc
         )
         TlsServer_INSTANCE_CONFIGURE(
             tlsServer, TLS_HOST_CERT)
+        TLS_API_DEMO_NIC_CONFIG(nwDriver)
     }
 }
