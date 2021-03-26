@@ -25,7 +25,7 @@ TimeServer_COMPONENT_DEFINE(TimeServer)
 #include "TlsServer/camkes/TlsServer.camkes"
 TlsServer_COMPONENT_DEFINE(TlsServer)
 
-#include "components/NwStack/network_stack.camkes";
+#include "components/NwStack/network_stack.camkes"
 NwStack_COMPONENT_DEFINE(NwStack)
 
 import "components/Demo/demo_OS_Tls.camkes";
