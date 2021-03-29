@@ -102,10 +102,6 @@ assembly {
         component EntropySource     entropySource_tlsServer;
         component TlsServer         tlsServer;
 
-        EntropySource_INSTANCE_CONNECT_CLIENT(
-            entropySource_tlsServer,
-            tlsServer.entropy_rpc,
-            tlsServer.entropy_port)
         TlsServer_INSTANCE_CONNECT(
             tlsServer,
             entropySource_tlsServer.entropy_rpc,
