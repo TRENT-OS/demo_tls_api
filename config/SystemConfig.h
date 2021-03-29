@@ -31,13 +31,8 @@
 //-----------------------------------------------------------------------------
 #define CHANMUX_CHANNEL_NIC_1_CTRL  4
 #define CHANMUX_CHANNEL_NIC_1_DATA  5
-#define CHANMUX_CHANNEL_NIC_2_CTRL  7
-#define CHANMUX_CHANNEL_NIC_2_DATA  8
-
-//    CHANMUX_NUM_CHANNELS        // 9
 
 #define CHANMUX_ID_NIC_1    101
-#define CHANMUX_ID_NIC_2    102
 
 
 //-----------------------------------------------------------------------------
