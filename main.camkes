@@ -43,11 +43,7 @@ assembly {
         //----------------------------------------------------------------------
         component ChanMux_UART chanMux_UART;
         component UART_0 uart;
-
-        ChanMux_UART_INSTANCE_CONNECT(
-            chanMux_UART,
-            uart
-        )
+        ChanMux_UART_INSTANCE_CONNECT(chanMux_UART, uart)
 
         //----------------------------------------------------------------------
         // NwStack
@@ -58,7 +54,9 @@ assembly {
         // Ticker
         //----------------------------------------------------------------------
         component  Ticker ticker;
-        connection seL4NotificationNative nwStack_tick (from ticker.e_timeout_nwstacktick, to nwStack.event_tick_or_data);
+        connection seL4NotificationNative nwStack_tick(
+            from ticker.e_timeout_nwstacktick,
+            to   nwStack.event_tick_or_data);
 
         //----------------------------------------------------------------------
         // TimeServer
@@ -68,12 +66,13 @@ assembly {
         TimeServer_INSTANCE_CONNECT_CLIENTS(
             timeServer,
             ticker.timeServer_rpc, ticker.timeServer_notify,
-            nwStack.timeServer_rpc, nwStack.timeServer_notify)
+            nwStack.timeServer_rpc, nwStack.timeServer_notify
+        )
 
         //----------------------------------------------------------------------
         // Network Driver
         //----------------------------------------------------------------------
-        component  NwDriver nwDriver;
+        component NwDriver nwDriver;
 
         ChanMux_UART_INSTANCE_CONNECT_CLIENT(
             chanMux_UART,
@@ -81,42 +80,63 @@ assembly {
         )
 
         // NwDriver connection
-        connection seL4NotificationNative NwStackdataAvailDriver           (from nwDriver.nic_event_hasData,  to nwStack.event_tick_or_data);
-        connection seL4SharedData         NwDriver_NwStack_ReadConnection  (from nwDriver.nic_port_to,        to nwStack.nic_from_port);
-        connection seL4SharedData         NwDriver_NwStack_WriteConnection (from nwDriver.nic_port_from,      to nwStack.nic_to_port);
-        connection seL4RPCCall            nwStack_NwDriver                 (from nwStack.nic_driver,          to nwDriver.nic_rpc);
+        connection seL4NotificationNative NwStackdataAvailDriver(
+            from nwDriver.nic_event_hasData,
+            to   nwStack.event_tick_or_data);
+
+        connection seL4SharedData NwDriver_NwStack_ReadConnection(
+            from nwDriver.nic_port_to,
+            to   nwStack.nic_from_port);
+
+        connection seL4SharedData NwDriver_NwStack_WriteConnection(
+            from nwDriver.nic_port_from,
+            to   nwStack.nic_to_port);
+
+        connection seL4RPCCall nwStack_NwDriver(
+            from nwStack.nic_driver,
+            to   nwDriver.nic_rpc);
 
         //----------------------------------------------------------------------
-        // Network Stack App #1
+        // Network Stack App #1: TLS Demo
         //----------------------------------------------------------------------
-        component  demo_OS_Tls      demo;
+        component demo_OS_Tls demo;
 
-        connection seL4RPCCall      NwApp_nwStack        (from demo.networkStack_rpc,         to nwStack.networkStack_rpc);
-        connection seL4SharedData   NwApp_dataConnection (from demo.networkStack_port,             to nwStack.port_socket_1);
+        connection seL4RPCCall conn_rpc_demo_nwStack(
+            from demo.networkStack_rpc,
+            to   nwStack.networkStack_rpc);
 
-        component EntropySource     entropySource_demo;
+        connection seL4SharedData conn_port_demo_nwStack(
+            from demo.networkStack_port,
+            to   nwStack.port_socket_1);
+
+        component EntropySource entropySource_demo;
 
         EntropySource_INSTANCE_CONNECT_CLIENT(
             entropySource_demo,
             demo.entropy_rpc,
-            demo.entropy_port)
+            demo.entropy_port
+        )
 
         //----------------------------------------------------------------------
-        // Network Stack App #2, TlsServer
+        // Network Stack App #2: TlsServer
         //----------------------------------------------------------------------
-        component EntropySource     entropySource_tlsServer;
-        component TlsServer         tlsServer;
+        component TlsServer tlsServer;
+
+        component EntropySource entropySource_tlsServer;
 
         TlsServer_INSTANCE_CONNECT(
             tlsServer,
             entropySource_tlsServer.entropy_rpc,
             entropySource_tlsServer.entropy_port,
             nwStack.networkStack_rpc,
-            nwStack.port_socket_1)
+            nwStack.port_socket_1
+        )
+
         TlsServer_INSTANCE_CONNECT_CLIENT(
             tlsServer,
             demo.tlsServer_rpc,
-            demo.tlsServer_port)
+            demo.tlsServer_port
+        )
     }
 
     configuration {
