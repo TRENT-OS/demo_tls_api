@@ -43,12 +43,12 @@ import <if_OS_Timer.camkes>;
     /*-------------------------------------------------*/\
     /* interface Ethernet NIC driver */\
     uses        if_OS_Nic                       nic_driver;\
-    dataport    Buf(NIC_DRIVER_RINGBUFFER_SIZE) port_nic_from;\
-    dataport    Buf                             port_nic_to;\
+    dataport    Buf(NIC_DRIVER_RINGBUFFER_SIZE) nic_from_port;\
+    dataport    Buf                             nic_to_port;\
 \
     /*-------------------------------------------------*/\
     /* interface Application */\
-    provides    if_OS_Socket           network_stack_rpc
+    provides    if_OS_Socket           networkStack_rpc
 
 #define NwStack_COMPONENT_DEFINE(_component_name_)\
 component _component_name_ {\

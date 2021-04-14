@@ -13,8 +13,8 @@ component demo_OS_Tls {
     control;
 
     // Networking
-    uses        if_OS_Socket                network_stack_rpc;
-    dataport    Buf                         NwAppDataPort;
+    uses        if_OS_Socket                networkStack_rpc;
+    dataport    Buf                         networkStack_port;
 
     // TLS
     uses        if_TlsServer                tlsServer_rpc;

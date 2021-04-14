@@ -77,8 +77,8 @@ assembly {
 
         // NwDriver connection
         connection seL4NotificationNative NwStackdataAvailDriver           (from nwDriver.nic_event_hasData,  to nwStack.event_tick_or_data);
-        connection seL4SharedData         NwDriver_NwStack_ReadConnection  (from nwDriver.nic_port_to,        to nwStack.port_nic_from);
-        connection seL4SharedData         NwDriver_NwStack_WriteConnection (from nwDriver.nic_port_from,      to nwStack.port_nic_to);
+        connection seL4SharedData         NwDriver_NwStack_ReadConnection  (from nwDriver.nic_port_to,        to nwStack.nic_from_port);
+        connection seL4SharedData         NwDriver_NwStack_WriteConnection (from nwDriver.nic_port_from,      to nwStack.nic_to_port);
         connection seL4RPCCall            nwStack_NwDriver                 (from nwStack.nic_driver,          to nwDriver.nic_rpc);
 
         //----------------------------------------------------------------------
@@ -86,8 +86,8 @@ assembly {
         //----------------------------------------------------------------------
         component  demo_OS_Tls      demo;
 
-        connection seL4RPCCall      NwApp_nwStack        (from demo.network_stack_rpc,         to nwStack.network_stack_rpc);
-        connection seL4SharedData   NwApp_dataConnection (from demo.NwAppDataPort,             to nwStack.port_socket_1);
+        connection seL4RPCCall      NwApp_nwStack        (from demo.networkStack_rpc,         to nwStack.networkStack_rpc);
+        connection seL4SharedData   NwApp_dataConnection (from demo.networkStack_port,             to nwStack.port_socket_1);
 
         component EntropySource     entropySource_demo;
 
@@ -110,7 +110,7 @@ assembly {
             tlsServer,
             entropySource_tlsServer.entropy_rpc,
             entropySource_tlsServer.entropy_port,
-            nwStack.network_stack_rpc,
+            nwStack.networkStack_rpc,
             nwStack.port_socket_1)
         TlsServer_INSTANCE_CONNECT_CLIENT(
             tlsServer,
