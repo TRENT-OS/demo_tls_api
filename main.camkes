@@ -55,11 +55,11 @@ assembly {
             nwDriver
         )
 
-        NwStack_INSTANCE_CONNECT_SOCKET(
+        NwStack_INSTANCE_CONNECT_CLIENT(
             nwStack,
-            1,
-            demo.networkStack_rpc,
-            demo.networkStack_port)
+            demo,
+            networkStack_rpc,
+            networkStack_port)
 
         //----------------------------------------------------------------------
         // TimeServer
