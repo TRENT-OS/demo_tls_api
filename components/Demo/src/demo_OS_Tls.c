@@ -162,9 +162,11 @@ readAndPrintWebPage(
 
         }
     }
-    // before to print it we make sure it is correctly terminated anyway
-    buffer[sizeof(buffer) - 1] = 0;
+
+    // ensure buffer is null-terminated before printing it
+    buffer[sizeof(buffer) - 1] = '\0';
     Debug_LOG_INFO("Got HTTP Page:\n%s", buffer);
+
     retval = true;
 
 err0:
@@ -302,6 +304,7 @@ err0:
 }
 
 // Public functions ------------------------------------------------------------
+
 int run(void)
 {
     initNetworkClientApi();
