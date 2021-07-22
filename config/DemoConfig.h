@@ -6,8 +6,7 @@
  */
 #pragma once
 
-// IP address of jenkins host so we can reach our own TLS Server we set up there
-#define TLS_HOST_IP     "93.184.216.34" //example.org
+#define TLS_HOST_IP     "93.184.216.34" // example.org
 #define TLS_HOST_PORT   443
 
 // Please note that the certificate could eventually expire. In this case would
