@@ -1,8 +1,7 @@
-/**
- * Copyright (C) 2019, Hensoldt Cyber GmbH
- *
+/*
  * System libraries configurations
  *
+ * Copyright (C) 2019-2021, HENSOLDT Cyber GmbH
  */
 #pragma once
 
@@ -29,10 +28,10 @@
 //-----------------------------------------------------------------------------
 // ChanMux
 //-----------------------------------------------------------------------------
-#define CHANMUX_CHANNEL_NIC_1_CTRL  4
-#define CHANMUX_CHANNEL_NIC_1_DATA  5
+#define CHANMUX_CHANNEL_NIC_CTRL  4
+#define CHANMUX_CHANNEL_NIC_DATA  5
 
-#define CHANMUX_ID_NIC_1    101
+#define CHANMUX_ID_NIC    101
 
 
 //-----------------------------------------------------------------------------
@@ -50,9 +49,10 @@
 
 
 //-----------------------------------------------------------------------------
-// Network Stack #1
+// Network Stack
 //-----------------------------------------------------------------------------
+#define OS_NETWORK_MAXIMUM_SOCKET_NO 16 
 
-#define ETH_1_ADDR                  "10.0.0.10"
-#define ETH_1_GATEWAY_ADDR          "10.0.0.1"
-#define ETH_1_SUBNET_MASK           "255.255.255.0"
+#define ETH_ADDR                  "10.0.0.10"
+#define ETH_GATEWAY_ADDR          "10.0.0.1"
+#define ETH_SUBNET_MASK           "255.255.255.0"

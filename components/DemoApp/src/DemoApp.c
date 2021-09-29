@@ -1,0 +1,432 @@
+/*
+ * This demo shows the usage of the TLS API in library and client mode
+ *
+ * Copyright (C) 2019-2021, HENSOLDT Cyber GmbH
+ */
+
+#include "DemoConfig.h"
+#include "TlsServer_client.h"
+
+#include "OS_Network.h"
+#include "interfaces/if_OS_Socket.h"
+
+#include "OS_Crypto.h"
+#include "OS_Tls.h"
+
+
+#include "lib_debug/Debug.h"
+
+#include <camkes.h>
+#include <string.h>
+
+
+static const if_OS_Socket_t networkStackCtx =
+    IF_OS_SOCKET_ASSIGN(networkStack);
+
+static OS_Crypto_Config_t cryptoCfg =
+{
+    .mode = OS_Crypto_MODE_LIBRARY,
+    .entropy = IF_OS_ENTROPY_ASSIGN(
+        entropy_rpc,
+        entropy_port),
+};
+
+// Private functions -----------------------------------------------------------
+
+static OS_Error_t
+connectSocket(
+    OS_NetworkSocket_Handle_t* socket)
+{
+    OS_Error_t err;
+
+    char evtBuffer[128];
+    size_t evtBufferSize = sizeof(evtBuffer);
+    int numberOfSocketsWithEvents;
+
+    do
+    {
+        seL4_Yield();
+        err = OS_NetworkSocket_create(
+                  &networkStackCtx,
+                  socket,
+                  OS_AF_INET,
+                  OS_SOCK_STREAM);
+    }
+    while (err == OS_ERROR_NOT_INITIALIZED);
+
+    if (err != OS_SUCCESS)
+    {
+        Debug_LOG_ERROR("OS_NetworkSocket_create() failed, code %d", err);
+        return err;
+    }
+
+    const OS_NetworkSocket_Addr_t dstAddr =
+    {
+        .addr = TLS_HOST_IP,
+        .port = TLS_HOST_PORT
+    };
+
+    err = OS_NetworkSocket_connect(*socket, &dstAddr);
+    if (err != OS_SUCCESS)
+    {
+        Debug_LOG_ERROR("OS_NetworkSocket_connect() failed, code %d", err);
+        OS_NetworkSocket_close(*socket);
+        return err;
+    }
+
+    // wait for socket connected
+    //-> read getPendingEvents
+    for (;;)
+    {
+        err = OS_NetworkSocket_wait(&networkStackCtx);
+        if (err != OS_SUCCESS)
+        {
+            Debug_LOG_ERROR("OS_NetworkSocket_wait() failed, code %d", err);
+            return err;
+        }
+
+        err = OS_NetworkSocket_getPendingEvents(
+                  &networkStackCtx,
+                  evtBuffer,
+                  evtBufferSize,
+                  &numberOfSocketsWithEvents);
+
+        if (err != OS_SUCCESS)
+        {
+            Debug_LOG_ERROR("OS_NetworkSocket_getPendingEvents() failed, "
+                            " code %d", err);
+            break;
+        }
+
+        // Due to asynchronous behaviour it could be that we call
+        // OS_NetworkSocket_getPendingEvents, although the event has already
+        // been handled. This is no error.
+        if (numberOfSocketsWithEvents == 0)
+        {
+            Debug_LOG_TRACE("Unexpected number of events from"
+                            " OS_NetworkSocket_getPendingEvents() failed,"
+                            " #events: %d",
+                            numberOfSocketsWithEvents);
+            continue;
+        }
+
+        // we only opened one socket, so if we get more events, this is not ok
+        if (numberOfSocketsWithEvents != 1)
+        {
+            Debug_LOG_ERROR("Unexpected number of events from"
+                            " OS_NetworkSocket_getPendingEvents() failed,"
+                            " #events: %d",
+                            numberOfSocketsWithEvents);
+            err = OS_ERROR_INVALID_STATE;
+            break;
+        }
+
+        OS_NetworkSocket_Evt_t event;
+        memcpy(&event, evtBuffer, sizeof(event));
+
+        if (event.socketHandle != socket->handleID)
+        {
+            Debug_LOG_ERROR("Unexpected handle received: %d, expected: %d",
+                            event.socketHandle,
+                            socket->handleID);
+            err = OS_ERROR_INVALID_HANDLE;
+            break;
+        }
+
+        // Socket has been closed by network stack
+        if (event.eventMask & OS_SOCK_EV_FIN)
+        {
+            Debug_LOG_ERROR("OS_NetworkSocket_getPendingEvents: "
+                            "OS_SOCK_EV_FIN, handle: %d",
+                            event.socketHandle);
+            err = OS_ERROR_NETWORK_CONN_REFUSED;
+            break;
+        }
+
+        // Connection event successful - not used in this application
+        if (event.eventMask & OS_SOCK_EV_CONN_EST)
+        {
+            Debug_LOG_INFO("OS_NetworkSocket_getPendingEvents: Connection"
+                           " established, handle: %d",
+                           event.socketHandle);
+            err = OS_SUCCESS;
+            break;
+        }
+
+        // Remote socket requested to be closed is only valid for clients
+        if (event.eventMask & OS_SOCK_EV_CLOSE)
+        {
+            Debug_LOG_ERROR("OS_NetworkSocket_getPendingEvents:"
+                            " OS_SOCK_EV_CLOSE handle: %d",
+                            event.socketHandle);
+            err = OS_ERROR_CONNECTION_CLOSED;
+            break;
+        }
+
+        // Error received - print error
+        if (event.eventMask & OS_SOCK_EV_ERROR)
+        {
+            Debug_LOG_ERROR("OS_NetworkSocket_getPendingEvents:"
+                            " OS_SOCK_EV_ERROR handle: %d, code: %d",
+                            event.socketHandle,
+                            event.currentError);
+            err = event.currentError;
+            break;
+        }
+    }
+
+    if (err != OS_SUCCESS)
+    {
+        OS_NetworkSocket_close(*socket);
+    }
+
+    return err;
+}
+
+bool
+readAndPrintWebPage(
+    const OS_Tls_Config_t* config)
+{
+    bool retval = false;
+    OS_Tls_Handle_t hTls;
+    const char request[] =
+        "GET / HTTP/1.0\r\nHost: www.example.org\r\nConnection: close\r\n\r\n";
+
+    OS_Error_t err = OS_Tls_init(&hTls, config);
+    if (OS_SUCCESS != err)
+    {
+        Debug_LOG_ERROR("OS_Tls_init() failed with error code %d", err);
+        return false;
+    }
+    Debug_LOG_INFO("TLS Library successfully initialized");
+
+    do
+    {
+        seL4_Yield();
+        err = OS_Tls_handshake(hTls);
+    }
+    while (err == OS_ERROR_WOULD_BLOCK);
+
+    if (OS_SUCCESS != err)
+    {
+        Debug_LOG_ERROR("OS_Tls_handshake() failed with error code %d", err);
+        goto err0;
+    }
+    Debug_LOG_INFO("TLS handshake succeeded");
+
+    size_t to_write = strlen(request);
+
+    do
+    {
+        seL4_Yield();
+        err = OS_Tls_write(hTls, request, &to_write);
+    }
+    while (err == OS_ERROR_WOULD_BLOCK);
+
+    if (OS_SUCCESS != err)
+    {
+        Debug_LOG_ERROR("OS_Tls_write() failed with error code %d", err);
+        goto err0;
+    }
+    Debug_LOG_INFO("HTTP request successfully sent");
+
+    static char buffer[4096] = {0};
+    char* needle = buffer;
+    size_t read = sizeof(buffer);
+
+    while (read > 0)
+    {
+        do
+        {
+            seL4_Yield();
+            err = OS_Tls_read(hTls, needle, &read);
+        }
+        while (err == OS_ERROR_WOULD_BLOCK);
+
+        Debug_LOG_INFO("OS_Tls_read() - bytes read: %d, err: %d", read, err);
+
+        switch (err)
+        {
+        case OS_SUCCESS:
+            needle = &needle[read];
+            read = sizeof(buffer) - (needle - buffer);
+            break;
+        case OS_ERROR_CONNECTION_CLOSED:
+            Debug_LOG_WARNING("connection closed by network stack");
+            read = 0;
+            break;
+        case OS_ERROR_NETWORK_CONN_SHUTDOWN:
+            Debug_LOG_WARNING("connection reset by peer");
+            read = 0;
+            break;
+        default:
+            Debug_LOG_ERROR("HTTP page retrieval failed while reading, "
+                            "OS_Tls_read returned error code %d, bytes read %zu",
+                            err, (size_t) (needle - buffer));
+            goto err0;
+
+        }
+    }
+
+    // ensure buffer is null-terminated before printing it
+    buffer[sizeof(buffer) - 1] = '\0';
+    Debug_LOG_INFO("Got HTTP Page:\n%s", buffer);
+
+    retval = true;
+
+err0:
+    err = OS_Tls_free(hTls);
+    if (OS_SUCCESS != err)
+    {
+        Debug_LOG_ERROR("OS_Tls_free() failed with error code %d", err);
+    }
+    return retval;
+}
+
+bool
+demoAsLibrary(void)
+{
+    bool retval = false;
+    OS_NetworkSocket_Handle_t socket;
+    OS_Tls_Config_t tlsConfig =
+    {
+        .mode = OS_Tls_MODE_LIBRARY,
+        .library = {
+            .socket = {
+                .context    = &socket,
+            },
+            .flags = OS_Tls_FLAG_NONE,
+            .crypto = {
+                .policy     = NULL,
+                .caCerts    = TLS_HOST_CERT,
+                .cipherSuites =
+                OS_Tls_CIPHERSUITE_FLAGS(
+                    OS_Tls_CIPHERSUITE_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+                    OS_Tls_CIPHERSUITE_DHE_RSA_WITH_AES_128_GCM_SHA256)
+            }
+        }
+    };
+
+    OS_Error_t err = OS_Crypto_init(&tlsConfig.library.crypto.handle,
+                                    &cryptoCfg);
+    if (OS_SUCCESS != err)
+    {
+        Debug_LOG_ERROR("OS_Crypto_init() failed with error code %d", err);
+        goto err0;
+    }
+    Debug_LOG_INFO("Crypto Library for TLS successfully initialized");
+
+    err = connectSocket(&socket);
+    if (OS_SUCCESS != err)
+    {
+        Debug_LOG_ERROR("connectSocket() failed with err %d", err);
+        goto err1;
+    }
+    Debug_LOG_INFO("Socket successfully connected");
+
+    if (!readAndPrintWebPage(&tlsConfig))
+    {
+        Debug_LOG_ERROR("readAndPrintWebPage() failed");
+        goto err2;
+    }
+    retval = true;
+
+err2:
+    {
+        OS_NetworkSocket_close(socket);
+    }
+err1:
+    {
+        OS_Error_t err = OS_Crypto_free(tlsConfig.library.crypto.handle);
+        if (OS_SUCCESS != err)
+        {
+            Debug_LOG_ERROR("OS_Crypto_free() failed with error code %d", err);
+        }
+        else
+        {
+            Debug_LOG_INFO("Crypto Library for TLS Library successfully freed");
+        }
+    }
+err0:
+    return retval;
+}
+
+OS_Error_t
+demoAsComponent(void)
+{
+    OS_Error_t err;
+    bool retval = false;
+
+    static const if_TlsServer_t tlsServer =
+        IF_TLSSERVER_ASSIGN(tls);
+    static const OS_Tls_Config_t tlsConfig =
+    {
+        .mode = OS_Tls_MODE_CLIENT,
+        .rpc = IF_OS_TLS_ASSIGN(tls)
+    };
+
+    do
+    {
+        seL4_Yield();
+        err = TlsServer_connect(&tlsServer, TLS_HOST_IP, TLS_HOST_PORT);
+    }
+    while (err == OS_ERROR_WOULD_BLOCK);
+
+    if (OS_SUCCESS != err)
+    {
+        Debug_LOG_ERROR("TlsServer_connect() failed with error code %d", err);
+        goto err0;
+    }
+
+    Debug_LOG_INFO("TLS Socket successfully connected");
+
+    if (!readAndPrintWebPage(&tlsConfig))
+    {
+        Debug_LOG_ERROR("readAndPrintWebPage() failed");
+        goto err1;
+    }
+    retval = true;
+
+err1:
+    {
+        OS_Error_t err = TlsServer_disconnect(&tlsServer);
+        if (OS_SUCCESS != err)
+        {
+            Debug_LOG_ERROR("TlsServer_disconnect() failed with error code %d",
+                            err);
+        }
+        else
+        {
+            Debug_LOG_INFO("TLS Socket successfully closed");
+        }
+    }
+err0:
+    return retval;
+}
+
+// Public functions ------------------------------------------------------------
+
+int run(void)
+{
+
+    Debug_LOG_INFO("Running TLS API in 'library' mode");
+
+    if (!demoAsLibrary())
+    {
+        Debug_LOG_ERROR("demoAsLibrary() failed");
+        return -1;
+    }
+
+    Debug_LOG_INFO("Demo TLS API in 'library' mode completed, now running"
+                   " TLS API in 'component' mode");
+
+    if (!demoAsComponent())
+    {
+        Debug_LOG_ERROR("demoAsComponent() failed");
+        return -1;
+    }
+
+    Debug_LOG_INFO("Demo completed successfully.");
+
+    return 0;
+}

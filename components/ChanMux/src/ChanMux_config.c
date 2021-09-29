@@ -1,10 +1,9 @@
 /*
  * Channel MUX
  *
- * Copyright (C) 2020, HENSOLDT Cyber GmbH
+ * Copyright (C) 2020-2021, HENSOLDT Cyber GmbH
  */
 
-#include "SystemConfig.h"
 #include "ChanMux/ChanMux.h"
 #include "ChanMuxNic.h"
 #include <camkes.h>
@@ -33,15 +32,15 @@ resolveChannel(
     switch (sender_id)
     {
     //----------------------------------
-    case CHANMUX_ID_NIC_1:
+    case CHANMUX_ID_NIC:
         switch (chanNum_local)
         {
         //----------------------------------
-        case CHANMUX_CHANNEL_NIC_1_CTRL:
-            return CHANMUX_CHANNEL_NIC_1_CTRL;
+        case CHANMUX_CHANNEL_NIC_CTRL:
+            return CHANMUX_CHANNEL_NIC_CTRL;
         //----------------------------------
-        case CHANMUX_CHANNEL_NIC_1_DATA:
-            return CHANMUX_CHANNEL_NIC_1_DATA;
+        case CHANMUX_CHANNEL_NIC_DATA:
+            return CHANMUX_CHANNEL_NIC_DATA;
         //----------------------------------
         default:
             break;
@@ -63,7 +62,7 @@ static struct
     // FIFO is big enough to store 1 minute of network "background" traffic.
     // Value found by manual testing, may differ in less noisy networks
     uint8_t data[1024 * PAGE_SIZE];
-} nic_fifo[2];
+} nic_fifo[1];
 
 static struct
 {
@@ -75,10 +74,9 @@ static struct
 //------------------------------------------------------------------------------
 static const ChanMux_ChannelCtx_t channelCtx[] =
 {
-
     CHANNELS_CTX_NIC_CTRL_DATA(
-        CHANMUX_CHANNEL_NIC_1_CTRL,
-        CHANMUX_CHANNEL_NIC_1_DATA,
+        CHANMUX_CHANNEL_NIC_CTRL,
+        CHANMUX_CHANNEL_NIC_DATA,
         0,
         nwDriver_ctrl_portRead,
         nwDriver_ctrl_portWrite,
@@ -95,5 +93,5 @@ const ChanMux_Config_t cfgChanMux =
 {
     .resolveChannel = &resolveChannel,
     .numChannels    = ARRAY_SIZE(channelCtx),
-    .channelCtx     = channelCtx,
+    .channelCtx     = channelCtx
 };

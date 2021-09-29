@@ -1,10 +1,10 @@
 #
 # Demo TLS API
 #
-# Copyright (C) 2019-2020, Hensoldt Cyber GmbH
+# Copyright (C) 2019-2021, HENSOLDT Cyber GmbH
 #
 
-cmake_minimum_required(VERSION 3.7.2)
+cmake_minimum_required(VERSION 3.17)
 
 #-------------------------------------------------------------------------------
 os_set_config_file(
@@ -16,12 +16,11 @@ project(demo_tls_api C)
 
 include("plat/${PLATFORM}/plat_nic.cmake")
 
-DeclareCAmkESComponent(demo_OS_Tls
+DeclareCAmkESComponent(DemoApp
     INCLUDES
         config
-        components/TlsRpcServer/src
     SOURCES
-        components/Demo/src/demo_OS_Tls.c
+        components/DemoApp/src/DemoApp.c
     C_FLAGS
         -Wall -Werror
     LIBS
@@ -29,7 +28,7 @@ DeclareCAmkESComponent(demo_OS_Tls
         os_core_api
         lib_debug
         os_crypto
-        os_network_api
+        os_network
         os_tls
         TlsServer_client
 )
@@ -38,39 +37,18 @@ TlsServer_DeclareCAmkESComponent(
     TlsServer
     LIBS
         os_crypto
-        os_network_api
+        os_network
 )
 
-DeclareCAmkESComponent(NwStack
-    INCLUDES
-        config
-    SOURCES
-        components/NwStack/src/network_stack.c
+NetworkStack_PicoTcp_DeclareCAmkESComponent(
+    NetworkStack_PicoTcp
     C_FLAGS
-        -Wall -Werror
-        -DCFG_ETH_ADDR=ETH_1_ADDR
-        -DCFG_ETH_GATEWAY_ADDR=ETH_1_GATEWAY_ADDR
-        -DCFG_ETH_SUBNET_MASK=ETH_1_SUBNET_MASK
-    LIBS
-        system_config
-        os_core_api
-        lib_debug
-        os_network_lib
-        TimeServer_client
+        -DNetworkStack_PicoTcp_USE_HARDCODED_IPADDR
+        -DDEV_ADDR=ETH_ADDR
+        -DGATEWAY_ADDR=ETH_GATEWAY_ADDR
+        -DSUBNET_MASK=ETH_SUBNET_MASK
 )
 
-DeclareCAmkESComponent(
-    Ticker
-    SOURCES
-        components/Ticker/Ticker.c
-    C_FLAGS
-        -Wall
-        -Werror
-    LIBS
-        os_core_api
-        lib_debug
-        TimeServer_client
-)
 
 TimeServer_DeclareCAmkESComponent(
     TimeServer
