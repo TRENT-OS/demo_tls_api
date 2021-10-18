@@ -33,6 +33,30 @@ DeclareCAmkESComponent(DemoApp
         TlsServer_client
 )
 
+DeclareCAmkESComponent(DemoApp_TlsClient
+    INCLUDES
+        config
+    SOURCES
+        components/DemoApp_TlsClient/src/DemoApp_TlsClient.c
+    C_FLAGS
+        -Wall -Werror
+    LIBS
+        system_config
+        os_core_api
+        lib_debug
+        TlsServer_client
+        # TlsServer_client does not include the os_tls API functions,
+        # for that os_tls is required. os_tls includes not only the api
+        # functions but also the tls client lib implementation
+        os_tls
+        # os_tls uses internally our os_crypto api, so we need to include
+        # it here
+        os_crypto
+        # os_crypto uses in the defaultSendFunc and defaultRecvFunc the network API
+        os_socket_client
+)
+
+
 TlsServer_DeclareCAmkESComponent(
     TlsServer
     LIBS

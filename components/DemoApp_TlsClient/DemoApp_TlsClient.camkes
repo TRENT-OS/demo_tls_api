@@ -1,0 +1,16 @@
+/*
+ * TLS Demo
+ *
+ * Copyright (C) 2021, HENSOLDT Cyber GmbH
+ */
+
+
+#include "TlsServer/camkes/if_TlsServer.camkes"
+
+
+component DemoApp_TlsClient {
+
+    control;
+
+    IF_TLSSERVER_USE(tls)
+}

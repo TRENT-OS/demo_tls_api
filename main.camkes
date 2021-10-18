@@ -29,6 +29,8 @@ NetworkStack_PicoTcp_COMPONENT_DEFINE(
 
 #include "components/DemoApp/DemoApp.camkes"
 
+#include "components/DemoApp_TlsClient/DemoApp_TlsClient.camkes"
+
 #include "plat_nic.camkes"
 
 assembly {
@@ -44,6 +46,13 @@ assembly {
         component TlsServer               tlsServer;
         component DemoApp                 demoApp;
 
+        component DemoApp_TlsClient       client_2;
+        component DemoApp_TlsClient       client_3;
+        component DemoApp_TlsClient       client_4;
+        component DemoApp_TlsClient       client_5;
+        component DemoApp_TlsClient       client_6;
+        component DemoApp_TlsClient       client_7;
+        component DemoApp_TlsClient       client_8;
 
 
         //----------------------------------------------------------------------
@@ -79,8 +88,16 @@ assembly {
 
         TlsServer_INSTANCE_CONNECT_CLIENTS(
             tlsServer,
-            demoApp, tls
+            demoApp, tls,
+            client_2, tls,
+            client_3, tls,
+            client_4, tls,
+            client_5, tls,
+            client_6, tls,
+            client_7, tls,
+            client_8, tls
         )
+
     }
 
     configuration {
@@ -91,7 +108,14 @@ assembly {
         )
 
         TlsServer_CLIENT_ASSIGN_BADGES(
-            demoApp, tls
+            demoApp, tls,
+            client_2, tls,
+            client_3, tls,
+            client_4, tls,
+            client_5, tls,
+            client_6, tls,
+            client_7, tls,
+            client_8, tls
         )
         
         TlsServer_INSTANCE_CONFIGURE(
@@ -107,7 +131,7 @@ assembly {
         NetworkStack_PicoTcp_INSTANCE_CONFIGURE_CLIENTS(
             nwStack,
             4,
-            4
+            12
         )
     }
 }
