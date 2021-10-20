@@ -7,7 +7,7 @@
 #include "DemoConfig.h"
 #include "TlsServer_client.h"
 
-#include "OS_Network.h"
+#include "OS_Socket.h"
 #include "interfaces/if_OS_Socket.h"
 
 #include "OS_Crypto.h"
@@ -35,7 +35,7 @@ static OS_Crypto_Config_t cryptoCfg =
 
 static OS_Error_t
 connectSocket(
-    OS_NetworkSocket_Handle_t* socket)
+    OS_Socket_Handle_t* socket)
 {
     OS_Error_t err;
 
@@ -46,7 +46,7 @@ connectSocket(
     do
     {
         seL4_Yield();
-        err = OS_NetworkSocket_create(
+        err = OS_Socket_create(
                   &networkStackCtx,
                   socket,
                   OS_AF_INET,
@@ -56,21 +56,21 @@ connectSocket(
 
     if (err != OS_SUCCESS)
     {
-        Debug_LOG_ERROR("OS_NetworkSocket_create() failed, code %d", err);
+        Debug_LOG_ERROR("OS_Socket_create() failed, code %d", err);
         return err;
     }
 
-    const OS_NetworkSocket_Addr_t dstAddr =
+    const OS_Socket_Addr_t dstAddr =
     {
         .addr = TLS_HOST_IP,
         .port = TLS_HOST_PORT
     };
 
-    err = OS_NetworkSocket_connect(*socket, &dstAddr);
+    err = OS_Socket_connect(*socket, &dstAddr);
     if (err != OS_SUCCESS)
     {
-        Debug_LOG_ERROR("OS_NetworkSocket_connect() failed, code %d", err);
-        OS_NetworkSocket_close(*socket);
+        Debug_LOG_ERROR("OS_Socket_connect() failed, code %d", err);
+        OS_Socket_close(*socket);
         return err;
     }
 
@@ -78,14 +78,14 @@ connectSocket(
     //-> read getPendingEvents
     for (;;)
     {
-        err = OS_NetworkSocket_wait(&networkStackCtx);
+        err = OS_Socket_wait(&networkStackCtx);
         if (err != OS_SUCCESS)
         {
-            Debug_LOG_ERROR("OS_NetworkSocket_wait() failed, code %d", err);
+            Debug_LOG_ERROR("OS_Socket_wait() failed, code %d", err);
             return err;
         }
 
-        err = OS_NetworkSocket_getPendingEvents(
+        err = OS_Socket_getPendingEvents(
                   &networkStackCtx,
                   evtBuffer,
                   evtBufferSize,
@@ -93,18 +93,18 @@ connectSocket(
 
         if (err != OS_SUCCESS)
         {
-            Debug_LOG_ERROR("OS_NetworkSocket_getPendingEvents() failed, "
+            Debug_LOG_ERROR("OS_Socket_getPendingEvents() failed, "
                             " code %d", err);
             break;
         }
 
         // Due to asynchronous behaviour it could be that we call
-        // OS_NetworkSocket_getPendingEvents, although the event has already
+        // OS_Socket_getPendingEvents, although the event has already
         // been handled. This is no error.
         if (numberOfSocketsWithEvents == 0)
         {
             Debug_LOG_TRACE("Unexpected number of events from"
-                            " OS_NetworkSocket_getPendingEvents() failed,"
+                            " OS_Socket_getPendingEvents() failed,"
                             " #events: %d",
                             numberOfSocketsWithEvents);
             continue;
@@ -114,14 +114,14 @@ connectSocket(
         if (numberOfSocketsWithEvents != 1)
         {
             Debug_LOG_ERROR("Unexpected number of events from"
-                            " OS_NetworkSocket_getPendingEvents() failed,"
+                            " OS_Socket_getPendingEvents() failed,"
                             " #events: %d",
                             numberOfSocketsWithEvents);
             err = OS_ERROR_INVALID_STATE;
             break;
         }
 
-        OS_NetworkSocket_Evt_t event;
+        OS_Socket_Evt_t event;
         memcpy(&event, evtBuffer, sizeof(event));
 
         if (event.socketHandle != socket->handleID)
@@ -136,7 +136,7 @@ connectSocket(
         // Socket has been closed by network stack
         if (event.eventMask & OS_SOCK_EV_FIN)
         {
-            Debug_LOG_ERROR("OS_NetworkSocket_getPendingEvents: "
+            Debug_LOG_ERROR("OS_Socket_getPendingEvents: "
                             "OS_SOCK_EV_FIN, handle: %d",
                             event.socketHandle);
             err = OS_ERROR_NETWORK_CONN_REFUSED;
@@ -146,7 +146,7 @@ connectSocket(
         // Connection event successful - not used in this application
         if (event.eventMask & OS_SOCK_EV_CONN_EST)
         {
-            Debug_LOG_INFO("OS_NetworkSocket_getPendingEvents: Connection"
+            Debug_LOG_INFO("OS_Socket_getPendingEvents: Connection"
                            " established, handle: %d",
                            event.socketHandle);
             err = OS_SUCCESS;
@@ -156,7 +156,7 @@ connectSocket(
         // Remote socket requested to be closed is only valid for clients
         if (event.eventMask & OS_SOCK_EV_CLOSE)
         {
-            Debug_LOG_ERROR("OS_NetworkSocket_getPendingEvents:"
+            Debug_LOG_ERROR("OS_Socket_getPendingEvents:"
                             " OS_SOCK_EV_CLOSE handle: %d",
                             event.socketHandle);
             err = OS_ERROR_CONNECTION_CLOSED;
@@ -166,7 +166,7 @@ connectSocket(
         // Error received - print error
         if (event.eventMask & OS_SOCK_EV_ERROR)
         {
-            Debug_LOG_ERROR("OS_NetworkSocket_getPendingEvents:"
+            Debug_LOG_ERROR("OS_Socket_getPendingEvents:"
                             " OS_SOCK_EV_ERROR handle: %d, code: %d",
                             event.socketHandle,
                             event.currentError);
@@ -177,7 +177,7 @@ connectSocket(
 
     if (err != OS_SUCCESS)
     {
-        OS_NetworkSocket_close(*socket);
+        OS_Socket_close(*socket);
     }
 
     return err;
@@ -287,7 +287,7 @@ bool
 demoAsLibrary(void)
 {
     bool retval = false;
-    OS_NetworkSocket_Handle_t socket;
+    OS_Socket_Handle_t socket;
     OS_Tls_Config_t tlsConfig =
     {
         .mode = OS_Tls_MODE_LIBRARY,
@@ -333,7 +333,7 @@ demoAsLibrary(void)
 
 err2:
     {
-        OS_NetworkSocket_close(socket);
+        OS_Socket_close(socket);
     }
 err1:
     {

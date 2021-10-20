@@ -28,7 +28,7 @@ DeclareCAmkESComponent(DemoApp
         os_core_api
         lib_debug
         os_crypto
-        os_network
+        os_socket_client
         os_tls
         TlsServer_client
 )
@@ -37,7 +37,7 @@ TlsServer_DeclareCAmkESComponent(
     TlsServer
     LIBS
         os_crypto
-        os_network
+        os_socket_client
 )
 
 NetworkStack_PicoTcp_DeclareCAmkESComponent(
