@@ -2,7 +2,7 @@
 
 ## Overview
 
-Provide a demo for the TrentOS-M TLS API
+Provide a demo for the TRENTOS TLS API
 
 The demo gets a simple web page from www.example.org. First using TLS as a
 library local to the demo application component then using TLS as a separate
