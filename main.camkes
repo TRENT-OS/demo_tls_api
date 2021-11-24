@@ -95,7 +95,7 @@ assembly {
         )
         
         TlsServer_INSTANCE_CONFIGURE(
-            tlsServer, TLS_HOST_CERT)
+            tlsServer, TLS_HOST_CERT, "", "")
         
         TLS_API_DEMO_NIC_CONFIG(nwDriver)
 
