@@ -298,7 +298,9 @@ demoAsLibrary(void)
             .flags = OS_Tls_FLAG_NONE,
             .crypto = {
                 .policy     = NULL,
-                .caCerts    = TLS_HOST_CERT,
+                .caCerts    = TLS_CLIENT_ROOT_CERT,
+                .ownCert    = TLS_CLIENT_CERT,
+                .privateKey = TLS_CLIENT_KEY,
                 .cipherSuites =
                 OS_Tls_CIPHERSUITE_FLAGS(
                     OS_Tls_CIPHERSUITE_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
@@ -417,14 +419,14 @@ int run(void)
         return -1;
     }
 
-    Debug_LOG_INFO("Demo TLS API in 'library' mode completed, now running"
-                   " TLS API in 'component' mode");
+    // Debug_LOG_INFO("Demo TLS API in 'library' mode completed, now running"
+    //                " TLS API in 'component' mode");
 
-    if (!demoAsComponent())
-    {
-        Debug_LOG_ERROR("demoAsComponent() failed");
-        return -1;
-    }
+    // if (!demoAsComponent())
+    // {
+    //     Debug_LOG_ERROR("demoAsComponent() failed");
+    //     return -1;
+    // }
 
     Debug_LOG_INFO("Demo completed successfully.");
 
