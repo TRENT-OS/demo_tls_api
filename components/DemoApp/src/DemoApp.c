@@ -260,38 +260,39 @@ readAndPrintWebPage(
     // - The HTTP server closes the socket after the response (which will cause
     //   an error and exit the Rx-loop).
     static char buffer[4096] = {0};
-    char* needle = buffer;
-    size_t read = sizeof(buffer);
+    size_t remainingLen = sizeof(buffer);
+    size_t readLen = 0;
 
-    while (read > 0)
+    while (remainingLen > 0)
     {
+        size_t actualLen = remainingLen;
         do
         {
             seL4_Yield();
-            err = OS_Tls_read(hTls, needle, &read);
+            err = OS_Tls_read(hTls, (buffer + readLen), &actualLen);
         }
         while (err == OS_ERROR_WOULD_BLOCK);
 
-        Debug_LOG_INFO("OS_Tls_read() - bytes read: %d, err: %d", read, err);
+        Debug_LOG_INFO("OS_Tls_read() - bytes read: %d, err: %d", actualLen, err);
 
         switch (err)
         {
         case OS_SUCCESS:
-            needle = &needle[read];
-            read = sizeof(buffer) - (needle - buffer);
+            remainingLen -= actualLen;
+            readLen += actualLen;
             break;
         case OS_ERROR_CONNECTION_CLOSED:
             Debug_LOG_WARNING("connection closed by network stack");
-            read = 0;
+            remainingLen = 0;
             break;
         case OS_ERROR_NETWORK_CONN_SHUTDOWN:
             Debug_LOG_WARNING("connection reset by peer");
-            read = 0;
+            remainingLen = 0;
             break;
         default:
             Debug_LOG_ERROR("HTTP page retrieval failed while reading, "
                             "OS_Tls_read returned error code %d, bytes read %zu",
-                            err, (size_t) (needle - buffer));
+                            err, readLen);
             goto err0;
 
         }
