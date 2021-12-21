@@ -47,6 +47,7 @@ doBlockingTlsWrite(
     {
         size_t actualLen = toWrite;
         err = OS_Tls_write(hTls, (data + writtenLen), &actualLen);
+
         switch (err)
         {
         case OS_SUCCESS:
