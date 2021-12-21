@@ -15,6 +15,7 @@
 
 
 #include "lib_debug/Debug.h"
+#include "lib_debug/Debug_OS_Error.h"
 
 #include <camkes.h>
 #include <string.h>
@@ -32,6 +33,36 @@ static OS_Crypto_Config_t cryptoCfg =
 };
 
 // Private functions -----------------------------------------------------------
+
+static OS_Error_t
+doBlockingTlsWrite(
+    OS_Tls_Handle_t hTls,
+    const void*     data,
+    size_t          toWrite)
+{
+    OS_Error_t err = OS_ERROR_GENERIC;
+    size_t writtenLen = 0;
+
+    while (toWrite > 0)
+    {
+        size_t actualLen = toWrite;
+        err = OS_Tls_write(hTls, (data + writtenLen), &actualLen);
+        switch (err)
+        {
+        case OS_SUCCESS:
+            toWrite -= actualLen;
+            writtenLen += actualLen;
+        case OS_ERROR_WOULD_BLOCK:
+            break;
+        default:
+            Debug_LOG_ERROR("OS_Tls_write() failed, code '%s'",
+                            Debug_OS_Error_toString(err));
+            return err;
+        }
+    };
+
+    return err;
+}
 
 static OS_Error_t
 connectSocket(
@@ -214,18 +245,12 @@ readAndPrintWebPage(
     }
     Debug_LOG_INFO("TLS handshake succeeded");
 
-    size_t to_write = strlen(request);
-
-    do
-    {
-        seL4_Yield();
-        err = OS_Tls_write(hTls, request, &to_write);
-    }
-    while (err == OS_ERROR_WOULD_BLOCK);
-
+    // For the sake of simplicity, the following function does not implement any
+    // timeout and will block until all bytes are written or an error occurs.
+    err = doBlockingTlsWrite(hTls, request, strlen(request));
     if (OS_SUCCESS != err)
     {
-        Debug_LOG_ERROR("OS_Tls_write() failed with error code %d", err);
+        Debug_LOG_ERROR("doBlockingTlsWrite() failed with error code %d", err);
         goto err0;
     }
     Debug_LOG_INFO("HTTP request successfully sent");
