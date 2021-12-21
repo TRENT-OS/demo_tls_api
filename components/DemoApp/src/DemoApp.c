@@ -273,7 +273,7 @@ readAndPrintWebPage(
         }
         while (err == OS_ERROR_WOULD_BLOCK);
 
-        Debug_LOG_INFO("OS_Tls_read() - bytes read: %d, err: %d", actualLen, err);
+        Debug_LOG_INFO("OS_Tls_read() - bytes read: %zu, err: %d", actualLen, err);
 
         switch (err)
         {
