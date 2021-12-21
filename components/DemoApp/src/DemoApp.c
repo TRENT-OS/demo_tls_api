@@ -266,20 +266,20 @@ readAndPrintWebPage(
     while (remainingLen > 0)
     {
         size_t actualLen = remainingLen;
-        do
-        {
-            seL4_Yield();
-            err = OS_Tls_read(hTls, (buffer + readLen), &actualLen);
-        }
-        while (err == OS_ERROR_WOULD_BLOCK);
 
-        Debug_LOG_INFO("OS_Tls_read() - bytes read: %zu, err: %d", actualLen, err);
+        err = OS_Tls_read(hTls, (buffer + readLen), &actualLen);
 
         switch (err)
         {
         case OS_SUCCESS:
+            Debug_LOG_INFO("OS_Tls_read() - bytes read: %zu", actualLen);
             remainingLen -= actualLen;
             readLen += actualLen;
+            break;
+        case OS_ERROR_WOULD_BLOCK:
+            // Donate the remaining timeslice to a thread of the same priority
+            // and try to read again with the next turn.
+            seL4_Yield();
             break;
         case OS_ERROR_CONNECTION_CLOSED:
             Debug_LOG_WARNING("connection closed by network stack");
@@ -294,7 +294,6 @@ readAndPrintWebPage(
                             "OS_Tls_read returned error code %d, bytes read %zu",
                             err, readLen);
             goto err0;
-
         }
     }
 
