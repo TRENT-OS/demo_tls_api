@@ -230,6 +230,10 @@ readAndPrintWebPage(
     }
     Debug_LOG_INFO("HTTP request successfully sent");
 
+    // A couple of assumptions are made for simplification:
+    // - The HTTP response is smaller than 4096 bytes
+    // - The HTTP server closes the socket after the response (which will cause
+    //   an error and exit the Rx-loop).
     static char buffer[4096] = {0};
     char* needle = buffer;
     size_t read = sizeof(buffer);
