@@ -1,15 +1,20 @@
 #
 # Demo TLS API
 #
-# Copyright (C) 2019-2021, HENSOLDT Cyber GmbH
+# Copyright (C) 2019-2022, HENSOLDT Cyber GmbH
 #
 
 cmake_minimum_required(VERSION 3.17)
 
 #-------------------------------------------------------------------------------
-os_set_config_file(
-    "config/SystemConfig.h"
-    CONFIG_PROJECT_NAME "system_config")
+# use the SDK
+find_package("os-sdk" REQUIRED)
+os_sdk_set_defaults()
+os_sdk_setup(CONFIG_FILE "config/SystemConfig.h" CONFIG_PROJECT "system_config")
+
+# Set additional include paths.
+CAmkESAddCPPInclude("plat/${PLATFORM}")
+
 
 #-------------------------------------------------------------------------------
 project(demo_tls_api C)
@@ -55,5 +60,4 @@ EntropySource_DeclareCAmkESComponent(
     EntropySource
 )
 
-DeclareAndCreateCamkESSystem(main.camkes)
-GenerateSimulateScript()
+os_sdk_create_CAmkES_system("main.camkes")
